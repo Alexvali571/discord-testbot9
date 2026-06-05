@@ -186,6 +186,14 @@ const commands = [
           { name: "alls", value: "alls" }
         )
     )
+  new SlashCommandBuilder()
+    .setName("syncchannel")
+    .setDescription("Sync channel permissions with its category")
+    .addChannelOption(o =>
+      o.setName("channel")
+        .setDescription("Select channel")
+        .setRequired(true)
+  ),
 
 ].map(c => c.toJSON());
 
@@ -208,6 +216,48 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
+
+  // ===================== SYNCCHANNEL =====================
+if (commandName === "syncchannel") {
+
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      flags: 64
+    });
+  }
+
+  const channel = interaction.options.getChannel("channel");
+
+  if (!channel.parent) {
+    return interaction.reply({
+      content: "❌ Channel has no category",
+      flags: 64
+    });
+  }
+
+  try {
+
+    await channel.lockPermissions();
+
+    await sendLog(
+      interaction.guild,
+      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nUser: ${interaction.user.tag}`
+    );
+
+    return interaction.reply(
+      `✅ Channel ${channel.name} synchronized with category ${channel.parent.name}`
+    );
+
+  } catch (err) {
+    console.error(err);
+
+    return interaction.reply({
+      content: "❌ Error while syncing channel",
+      flags: 64
+    });
+  }
+}
 
   // ===================== SYNCROLE =====================
   if (commandName === "syncrole") {
