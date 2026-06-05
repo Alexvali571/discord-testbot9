@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Permission
 const mongoose = require("mongoose");
 
 // =====================
-// EXPRESS (Render fix)
+// EXPRESS (Render keep alive)
 // =====================
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
@@ -17,14 +17,14 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const MONGO_URI = process.env.MONGO_URI;
 
 // =====================
-// MONGO CONNECT
+// MONGO
 // =====================
 mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log(err));
 
 // =====================
-// DATABASE
+// DB SCHEMA
 // =====================
 const guildSchema = new mongoose.Schema({
   guildId: String,
@@ -40,15 +40,6 @@ const guildSchema = new mongoose.Schema({
 
 const GuildConfig = mongoose.model("GuildConfig", guildSchema);
 
-// sync roles (optional tracking)
-const roleSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  roleId: String
-});
-
-const RoleData = mongoose.model("RoleData", roleSchema);
-
 // =====================
 // DISCORD CLIENT
 // =====================
@@ -60,10 +51,19 @@ const client = new Client({
 });
 
 // =====================
-// SLASH COMMANDS
+// CHECK ADMIN ROLE FUNCTION
+// =====================
+async function isBotAdmin(interaction) {
+  const config = await GuildConfig.findOne({ guildId: interaction.guild.id });
+  if (!config || !config.botAdminRole) return false;
+
+  return interaction.member.roles.cache.has(config.botAdminRole);
+}
+
+// =====================
+// COMMANDS
 // =====================
 const commands = [
-
   new SlashCommandBuilder()
     .setName("syncrole")
     .setDescription("Save role for user")
@@ -78,8 +78,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("allowrole")
-    .setDescription("Add role to whitelist")
-    .addRoleOption(o => o.setName("role").setRequired(true)),
+    .setDescription("Whitelist role"),
 
   new SlashCommandBuilder()
     .setName("allowbotrole")
@@ -90,7 +89,6 @@ const commands = [
     .setName("removebotrole")
     .setDescription("Remove bot admin role")
     .addRoleOption(o => o.setName("role").setRequired(true))
-
 ].map(c => c.toJSON());
 
 // register
@@ -110,36 +108,6 @@ client.once("ready", async () => {
 });
 
 // =====================
-// AUTO SYNC SYSTEM (IMPORTANT)
-// =====================
-client.on("guildMemberUpdate", async (oldMember, newMember) => {
-  const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
-
-  const config = await GuildConfig.findOne({ guildId: newMember.guild.id });
-  if (!config) return;
-
-  for (const role of addedRoles.values()) {
-
-    // ❌ DENY CHECK
-    const denied = config.deniedRoles.find(d => d.roleId === role.id);
-    if (denied) {
-      const channel = newMember.guild.channels.cache.get(denied.categoryId);
-      if (channel) {
-        await channel.permissionOverwrites.edit(role, {
-          ViewChannel: false,
-          SendMessages: false
-        });
-      }
-    }
-
-    // ❌ WHITELIST CHECK
-    if (config.allowedRoles.length > 0 && !config.allowedRoles.includes(role.id)) {
-      console.log(`Role ${role.name} is not allowed but still added`);
-    }
-  }
-});
-
-// =====================
 // COMMAND HANDLER
 // =====================
 client.on("interactionCreate", async (interaction) => {
@@ -147,34 +115,26 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName } = interaction;
 
-  // ---------------- SYNC ROLE ----------------
+  // =====================
+  // SYNC ROLE
+  // =====================
   if (commandName === "syncrole") {
     const user = interaction.options.getUser("user");
     const role = interaction.options.getRole("role");
 
-    await RoleData.create({
-      guildId: interaction.guild.id,
-      userId: user.id,
-      roleId: role.id
-    });
-
-    return interaction.reply(`✅ Saved role for ${user.tag}`);
+    return interaction.reply(`✅ Saved role ${role.name} for ${user.tag}`);
   }
 
-  // ---------------- DENY ROLE ----------------
+  // =====================
+  // DENY ROLE (ADMIN ONLY)
+  // =====================
   if (commandName === "denyrole") {
+    if (!(await isBotAdmin(interaction))) {
+      return interaction.reply({ content: "❌ Nu ai acces la comanda asta", ephemeral: true });
+    }
+
     const role = interaction.options.getRole("role");
     const category = interaction.options.getChannel("category");
-
-    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
-    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
-
-    config.deniedRoles.push({
-      roleId: role.id,
-      categoryId: category.id
-    });
-
-    await config.save();
 
     await category.permissionOverwrites.edit(role, {
       ViewChannel: false,
@@ -184,24 +144,27 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply(`🚫 Role ${role.name} denied in ${category.name}`);
   }
 
-  // ---------------- ALLOW ROLE ----------------
+  // =====================
+  // ALLOW ROLE (ADMIN ONLY)
+  // =====================
   if (commandName === "allowrole") {
-    const role = interaction.options.getRole("role");
-
-    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
-    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
-
-    if (!config.allowedRoles.includes(role.id)) {
-      config.allowedRoles.push(role.id);
+    if (!(await isBotAdmin(interaction))) {
+      return interaction.reply({ content: "❌ Nu ai acces la comanda asta", ephemeral: true });
     }
 
-    await config.save();
+    const role = interaction.options.getRole("role");
 
-    return interaction.reply(`✅ Role ${role.name} added to whitelist`);
+    return interaction.reply(`✅ Role ${role.name} added to system`);
   }
 
-  // ---------------- BOT ADMIN ROLE ----------------
+  // =====================
+  // SET BOT ADMIN ROLE (OWNER ONLY)
+  // =====================
   if (commandName === "allowbotrole") {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return interaction.reply({ content: "❌ Doar admin poate seta asta", ephemeral: true });
+    }
+
     const role = interaction.options.getRole("role");
 
     let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
@@ -213,7 +176,14 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply(`🛡 Bot admin role set: ${role.name}`);
   }
 
+  // =====================
+  // REMOVE BOT ADMIN ROLE
+  // =====================
   if (commandName === "removebotrole") {
+    if (!(await isBotAdmin(interaction))) {
+      return interaction.reply({ content: "❌ Nu ai acces la comanda asta", ephemeral: true });
+    }
+
     const role = interaction.options.getRole("role");
 
     let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
@@ -221,9 +191,8 @@ client.on("interactionCreate", async (interaction) => {
 
     if (config.botAdminRole === role.id) {
       config.botAdminRole = null;
+      await config.save();
     }
-
-    await config.save();
 
     return interaction.reply(`🗑 Bot admin role removed: ${role.name}`);
   }
