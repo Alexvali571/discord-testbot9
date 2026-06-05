@@ -440,42 +440,74 @@ if (commandName === "syncchannel") {
   }
 }
 
-  // ===================== SYNCROLE =====================
-  if (commandName === "syncrole") {
-    if (!(await isBotAdmin(interaction))) {
-      return interaction.reply({ content: "❌ No permission", ephemeral: true });
-    }
+// ===================== SYNCROLE =====================
+if (commandName === "syncrole") {
 
-    const role = interaction.options.getRole("role");
-    const category = interaction.options.getChannel("category");
-
-    const baseChannels = interaction.guild.channels.cache.filter(
-      c => c.parentId === category.id
-    );
-
-    for (const ch of baseChannels.values()) {
-      const perms = ch.permissionOverwrites.cache.get(role.id);
-      if (!perms) continue;
-
-      const data = {
-        ViewChannel: perms.allow.has("ViewChannel"),
-        SendMessages: perms.allow.has("SendMessages"),
-        ReadMessageHistory: perms.allow.has("ReadMessageHistory")
-      };
-
-      const allChannels = interaction.guild.channels.cache.filter(c => c.parentId);
-
-      for (const c of allChannels.values()) {
-        await c.permissionOverwrites.edit(role, data);
-      }
-    }
-
-    await sendLog(interaction.guild,
-      `🔁 SYNC ROLE\nRole: ${role.name}\nUser: ${interaction.user.tag}`
-    );
-
-    return interaction.reply(`✅ Synced role globally`);
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      ephemeral: true
+    });
   }
+
+  const role = interaction.options.getRole("role");
+  const category = interaction.options.getChannel("category");
+
+  if (!category || category.type !== 4) {
+    return interaction.reply({
+      content: "❌ Select a category",
+      ephemeral: true
+    });
+  }
+
+  const sourceOverwrite =
+    category.permissionOverwrites.cache.get(role.id);
+
+  if (!sourceOverwrite) {
+    return interaction.reply({
+      content: "❌ Role has no overwrite in source category",
+      ephemeral: true
+    });
+  }
+
+  try {
+
+    const categories =
+      interaction.guild.channels.cache.filter(
+        c => c.type === 4
+      );
+
+    for (const cat of categories.values()) {
+
+      await cat.permissionOverwrites.edit(role, {
+        allow: sourceOverwrite.allow.bitfield,
+        deny: sourceOverwrite.deny.bitfield
+      });
+
+    }
+
+    await sendLog(
+      interaction.guild,
+      `🔁 SYNC ROLE
+Role: ${role.name}
+Source: ${category.name}
+User: ${interaction.user.tag}`
+    );
+
+    return interaction.reply({
+      content: `✅ Copied ALL permissions from ${category.name} to all categories`,
+      ephemeral: false
+    });
+
+  } catch (err) {
+    console.error(err);
+
+    return interaction.reply({
+      content: "❌ Failed to sync role",
+      ephemeral: true
+    });
+  }
+}
 
   // ===================== DENYROLE =====================
   if (commandName === "denyrole") {
