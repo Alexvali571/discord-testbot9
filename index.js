@@ -79,6 +79,11 @@ setInterval(() => {
     "Ping:",
     client.ws.ping
   );
+
+  if (client.ws.status !== 0) {
+    console.log("❌ Discord gateway lost. Restarting process...");
+    process.exit(1);
+  }
 }, 60000);
 
 // ================🔧 SAFE HANDLERS====================
