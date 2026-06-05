@@ -3,17 +3,11 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Permission
 const mongoose = require("mongoose");
 
 // =====================
-// EXPRESS (IMPORTANT pentru Render)
+// EXPRESS (Render fix)
 // =====================
 const app = express();
-
-app.get("/", (req, res) => {
-  res.send("Bot is running");
-});
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Web server is running");
-});
+app.get("/", (req, res) => res.send("Bot is running"));
+app.listen(process.env.PORT || 3000);
 
 // =====================
 // ENV
@@ -23,12 +17,30 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const MONGO_URI = process.env.MONGO_URI;
 
 // =====================
-// MONGO DB
+// MONGO CONNECT
 // =====================
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch(err => console.log("MongoDB error:", err));
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.log(err));
 
+// =====================
+// DATABASE
+// =====================
+const guildSchema = new mongoose.Schema({
+  guildId: String,
+  allowedRoles: [String],
+  deniedRoles: [
+    {
+      roleId: String,
+      categoryId: String
+    }
+  ],
+  botAdminRole: String
+});
+
+const GuildConfig = mongoose.model("GuildConfig", guildSchema);
+
+// sync roles (optional tracking)
 const roleSchema = new mongoose.Schema({
   guildId: String,
   userId: String,
@@ -41,52 +53,52 @@ const RoleData = mongoose.model("RoleData", roleSchema);
 // DISCORD CLIENT
 // =====================
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 // =====================
-// COMMANDS
+// SLASH COMMANDS
 // =====================
 const commands = [
+
   new SlashCommandBuilder()
     .setName("syncrole")
     .setDescription("Save role for user")
-    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
-    .addRoleOption(o => o.setName("role").setDescription("Role").setRequired(true)),
+    .addUserOption(o => o.setName("user").setRequired(true))
+    .addRoleOption(o => o.setName("role").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("denyrole")
-    .setDescription("Remove role from user")
-    .addUserOption(o => o.setName("user").setDescription("User").setRequired(true))
-    .addRoleOption(o => o.setName("role").setDescription("Role").setRequired(true)),
+    .setDescription("Block role in category")
+    .addRoleOption(o => o.setName("role").setRequired(true))
+    .addChannelOption(o => o.setName("category").setRequired(true)),
 
   new SlashCommandBuilder()
-    .setName("copyrolemember")
-    .setDescription("Copy roles from one user to another")
-    .addUserOption(o => o.setName("from").setDescription("From").setRequired(true))
-    .addUserOption(o => o.setName("to").setDescription("To").setRequired(true)),
+    .setName("allowrole")
+    .setDescription("Add role to whitelist")
+    .addRoleOption(o => o.setName("role").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("allowbotrole")
-    .setDescription("Enable bot role actions"),
+    .setDescription("Set bot admin role")
+    .addRoleOption(o => o.setName("role").setRequired(true)),
 
   new SlashCommandBuilder()
     .setName("removebotrole")
-    .setDescription("Disable bot role actions")
+    .setDescription("Remove bot admin role")
+    .addRoleOption(o => o.setName("role").setRequired(true))
+
 ].map(c => c.toJSON());
 
-// register commands
+// register
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 async function registerCommands() {
-  try {
-    await rest.put(Routes.applicationCommands(CLIENT_ID), {
-      body: commands
-    });
-    console.log("Slash commands registered");
-  } catch (err) {
-    console.log(err);
-  }
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
+  console.log("Commands registered");
 }
 
 // =====================
@@ -98,6 +110,36 @@ client.once("ready", async () => {
 });
 
 // =====================
+// AUTO SYNC SYSTEM (IMPORTANT)
+// =====================
+client.on("guildMemberUpdate", async (oldMember, newMember) => {
+  const addedRoles = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id));
+
+  const config = await GuildConfig.findOne({ guildId: newMember.guild.id });
+  if (!config) return;
+
+  for (const role of addedRoles.values()) {
+
+    // ❌ DENY CHECK
+    const denied = config.deniedRoles.find(d => d.roleId === role.id);
+    if (denied) {
+      const channel = newMember.guild.channels.cache.get(denied.categoryId);
+      if (channel) {
+        await channel.permissionOverwrites.edit(role, {
+          ViewChannel: false,
+          SendMessages: false
+        });
+      }
+    }
+
+    // ❌ WHITELIST CHECK
+    if (config.allowedRoles.length > 0 && !config.allowedRoles.includes(role.id)) {
+      console.log(`Role ${role.name} is not allowed but still added`);
+    }
+  }
+});
+
+// =====================
 // COMMAND HANDLER
 // =====================
 client.on("interactionCreate", async (interaction) => {
@@ -105,7 +147,7 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName } = interaction;
 
-  // syncrole
+  // ---------------- SYNC ROLE ----------------
   if (commandName === "syncrole") {
     const user = interaction.options.getUser("user");
     const role = interaction.options.getRole("role");
@@ -119,46 +161,71 @@ client.on("interactionCreate", async (interaction) => {
     return interaction.reply(`✅ Saved role for ${user.tag}`);
   }
 
-  // denyrole
+  // ---------------- DENY ROLE ----------------
   if (commandName === "denyrole") {
-    const user = interaction.options.getUser("user");
+    const role = interaction.options.getRole("role");
+    const category = interaction.options.getChannel("category");
+
+    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
+    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
+
+    config.deniedRoles.push({
+      roleId: role.id,
+      categoryId: category.id
+    });
+
+    await config.save();
+
+    await category.permissionOverwrites.edit(role, {
+      ViewChannel: false,
+      SendMessages: false
+    });
+
+    return interaction.reply(`🚫 Role ${role.name} denied in ${category.name}`);
+  }
+
+  // ---------------- ALLOW ROLE ----------------
+  if (commandName === "allowrole") {
     const role = interaction.options.getRole("role");
 
-    const member = await interaction.guild.members.fetch(user.id);
-    await member.roles.remove(role);
+    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
+    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
 
-    return interaction.reply(`❌ Removed role from ${user.tag}`);
+    if (!config.allowedRoles.includes(role.id)) {
+      config.allowedRoles.push(role.id);
+    }
+
+    await config.save();
+
+    return interaction.reply(`✅ Role ${role.name} added to whitelist`);
   }
 
-  // copy roles
-  if (commandName === "copyrolemember") {
-    const from = interaction.options.getUser("from");
-    const to = interaction.options.getUser("to");
-
-    const fromMember = await interaction.guild.members.fetch(from.id);
-    const toMember = await interaction.guild.members.fetch(to.id);
-
-    await toMember.roles.set(fromMember.roles.cache);
-
-    return interaction.reply(`📋 Copied roles from ${from.tag} to ${to.tag}`);
-  }
-
-  // allow bot role
+  // ---------------- BOT ADMIN ROLE ----------------
   if (commandName === "allowbotrole") {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: "❌ No permission", ephemeral: true });
-    }
+    const role = interaction.options.getRole("role");
 
-    return interaction.reply("✅ Bot role actions enabled");
+    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
+    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
+
+    config.botAdminRole = role.id;
+    await config.save();
+
+    return interaction.reply(`🛡 Bot admin role set: ${role.name}`);
   }
 
-  // remove bot role
   if (commandName === "removebotrole") {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-      return interaction.reply({ content: "❌ No permission", ephemeral: true });
+    const role = interaction.options.getRole("role");
+
+    let config = await GuildConfig.findOne({ guildId: interaction.guild.id });
+    if (!config) config = await GuildConfig.create({ guildId: interaction.guild.id });
+
+    if (config.botAdminRole === role.id) {
+      config.botAdminRole = null;
     }
 
-    return interaction.reply("🗑 Bot role actions disabled");
+    await config.save();
+
+    return interaction.reply(`🗑 Bot admin role removed: ${role.name}`);
   }
 });
 
