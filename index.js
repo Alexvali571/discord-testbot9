@@ -9,16 +9,33 @@ const {
 } = require("discord.js");
 const mongoose = require("mongoose");
 
+process.on("unhandledRejection", (err) => {
+  console.error(err);
+  process.exit(1);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error(err);
+  process.exit(1);
+});
+
 // ===================== EXPRESS =====================
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 
-const PORT = process.env.PORT;
-
-app.listen(PORT || 3000, () => {
-  console.log("Express running on port", PORT || 3000);
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    discord: client?.ws?.status === 0 ? "online" : "offline",
+    uptime: process.uptime()
+  });
 });
 
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Express running on port", PORT);
+});
 // ===================== ENV =====================
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -56,8 +73,31 @@ const client = new Client({
   ]
 });
 
-client.on("clientReady", () => {
-  console.log("✅ Discord gateway connected");
+client.on("shardDisconnect", () => {
+  console.log("⚠️ Shard disconnected → restart");
+  process.exit(1);
+});
+
+client.on("shardReconnecting", () => {
+  console.log("🔄 Shard reconnecting...");
+});
+
+client.on("shardResume", () => {
+  console.log("✅ Shard resumed");
+  heartbeat();
+});
+
+client.on("disconnect", () => {
+  console.log("⚠️ Disconnected, reconnecting...");
+  startBot();
+});
+
+client.on("shardDisconnect", () => {
+  console.log("⚠️ Shard disconnected");
+});
+
+client.on("ready", () => {
+  console.log(`🟢 Logged in as ${client.user.tag}`);
 });
 
 client.on("shardDisconnect", (event, id) => {
@@ -85,6 +125,27 @@ setInterval(() => {
     process.exit(1);
   }
 }, 60000);
+
+setInterval(() => {
+  if (client?.user) {
+    console.log(`🟢 Alive as ${client.user.tag}`);
+  } else {
+    console.log("🟡 Bot not ready yet");
+  }
+}, 60000);
+
+setInterval(() => {
+  if (!client.isReady()) {
+    console.log("❌ Bot dead → restart");
+    process.exit(1);
+  }
+}, 120000);
+
+let lastHeartbeat = Date.now();
+
+function heartbeat() {
+  lastHeartbeat = Date.now();
+}
 
 // ================🔧 SAFE HANDLERS====================
 process.on("unhandledRejection", console.error);
@@ -207,11 +268,19 @@ async function register() {
 }
 
 // ===================== READY =====================
-client.once("clientReady", async () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  await register();
-});
+client.once("ready", async () => {
+  console.log(`🟢 Logged in as ${client.user.tag}`);
 
+  heartbeat();
+
+  await register();
+
+  // heartbeat la fiecare 30 sec
+  setInterval(() => {
+    heartbeat();
+    console.log("💓 heartbeat OK");
+  }, 30000);
+});
 // ===================== COMMAND HANDLER =====================
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -421,4 +490,27 @@ if (commandName === "syncchannel") {
 });
 
 // =====================
-client.login(TOKEN).catch(console.error);
+console.log("Starting bot...");
+
+function startBot() {
+  client.login(TOKEN)
+    .then(() => console.log("✅ Logged in successfully"))
+    .catch(err => {
+      console.error("❌ Login error:", err);
+      setTimeout(startBot, 5000); // retry după 5 sec
+    });
+}
+
+startBot();
+
+setInterval(() => {
+  const diff = Date.now() - lastHeartbeat;
+
+  console.log("⏱ watchdog check:", diff, "ms");
+
+  // 2 minute fără semnal = restart
+  if (diff > 120000) {
+    console.log("💀 Bot frozen → restarting process...");
+    process.exit(1);
+  }
+}, 30000);
