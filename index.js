@@ -61,7 +61,6 @@ async function sendLog(guild, msg) {
 // ===================== COMMANDS =====================
 const commands = [
 
-  // SYNCROLE
   new SlashCommandBuilder()
     .setName("syncrole")
     .setDescription("Sync role permissions from category to all categories")
@@ -72,11 +71,10 @@ const commands = [
     )
     .addChannelOption(o =>
       o.setName("category")
-        .setDescription("Select source category")
+        .setDescription("Select category")
         .setRequired(true)
     ),
 
-  // DENYROLE
   new SlashCommandBuilder()
     .setName("denyrole")
     .setDescription("Deny role in category")
@@ -91,7 +89,6 @@ const commands = [
         .setRequired(true)
     ),
 
-  // ALLOW BOT ROLE
   new SlashCommandBuilder()
     .setName("allowbotrole")
     .setDescription("Set bot admin role")
@@ -101,7 +98,6 @@ const commands = [
         .setRequired(true)
     ),
 
-  // REMOVE BOT ROLE
   new SlashCommandBuilder()
     .setName("removebotrole")
     .setDescription("Remove bot admin role")
@@ -111,7 +107,6 @@ const commands = [
         .setRequired(true)
     ),
 
-  // COPY ROLE MEMBER
   new SlashCommandBuilder()
     .setName("copyrolemember")
     .setDescription("Copy role permissions to member (category or all)")
