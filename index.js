@@ -7,12 +7,19 @@ const {
   SlashCommandBuilder,
   PermissionsBitField
 } = require("discord.js");
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
 const mongoose = require("mongoose");
 
 // ===================== EXPRESS =====================
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
-app.listen(process.env.PORT || 3000);
+
+const PORT = process.env.PORT;
+
+app.listen(PORT || 3000, () => {
+  console.log("Express running on port", PORT || 3000);
+});
 
 // ===================== ENV =====================
 const TOKEN = process.env.TOKEN;
@@ -40,6 +47,25 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ]
 });
+
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+
+client.on("error", console.error);
+client.on("warn", console.warn);
+
+setInterval(() => {
+  if (client.user) {
+    console.log("🟢 Bot alive:", client.user.tag);
+  }
+}, 60000);
+
+// ================🔧 SAFE HANDLERS====================
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+
+client.on("error", console.error);
+client.on("warn", console.warn);
 
 // ===================== BOT ADMIN CHECK =====================
 async function isBotAdmin(interaction) {
@@ -318,4 +344,4 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 // =====================
-client.login(TOKEN);
+client.login(TOKEN).catch(console.error);
