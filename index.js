@@ -255,7 +255,7 @@ const commands = [
       o.setName("channel")
         .setDescription("Select channel")
         .setRequired(true)
-    )
+  ),
 
 ].map(c => c.toJSON());
 
@@ -286,6 +286,56 @@ client.on("interactionCreate", async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
+
+  if (commandName === "syncchannel") {
+
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      ephemeral: true
+    });
+  }
+
+  const channel = interaction.options.getChannel("channel");
+
+  if (!channel.parentId) {
+    return interaction.reply({
+      content: "❌ Channel is not inside a category",
+      ephemeral: true
+    });
+  }
+
+  try {
+    const category = await interaction.guild.channels.fetch(channel.parentId);
+
+    if (!category) {
+      return interaction.reply({
+        content: "❌ Category not found",
+        ephemeral: true
+      });
+    }
+
+    // 🔥 aici se face sync-ul REAL
+    await channel.lockPermissions();
+
+    await sendLog(
+      interaction.guild,
+      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
+    );
+
+    return interaction.reply({
+      content: `✅ Synced ${channel.name} with ${category.name}`,
+      ephemeral: false
+    });
+
+  } catch (err) {
+    console.error(err);
+    return interaction.reply({
+      content: "❌ Failed to sync channel",
+      ephemeral: true
+    });
+  }
+}
 
   // ===================== SYNCCHANNEL =====================
 if (commandName === "syncchannel") {
