@@ -3,7 +3,7 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, Permission
 const mongoose = require("mongoose");
 
 // =====================
-// EXPRESS (Render keep alive)
+// EXPRESS (Render fix)
 // =====================
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
@@ -15,6 +15,7 @@ app.listen(process.env.PORT || 3000);
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const MONGO_URI = process.env.MONGO_URI;
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 
 // =====================
 // MONGO
@@ -24,17 +25,11 @@ mongoose.connect(MONGO_URI)
   .catch(err => console.log(err));
 
 // =====================
-// DB SCHEMA
+// DB
 // =====================
 const guildSchema = new mongoose.Schema({
   guildId: String,
   allowedRoles: [String],
-  deniedRoles: [
-    {
-      roleId: String,
-      categoryId: String
-    }
-  ],
   botAdminRole: String
 });
 
@@ -51,7 +46,7 @@ const client = new Client({
 });
 
 // =====================
-// CHECK ADMIN ROLE FUNCTION
+// BOT ADMIN CHECK
 // =====================
 async function isBotAdmin(interaction) {
   const config = await GuildConfig.findOne({ guildId: interaction.guild.id });
@@ -61,24 +56,27 @@ async function isBotAdmin(interaction) {
 }
 
 // =====================
+// LOG SYSTEM
+// =====================
+async function sendLog(guild, message) {
+  try {
+    const channel = guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (!channel) return;
+    await channel.send(message);
+  } catch (err) {
+    console.log("Log error:", err);
+  }
+}
+
+// =====================
 // COMMANDS
 // =====================
 const commands = [
   new SlashCommandBuilder()
-    .setName("syncrole")
-    .setDescription("Save role for user")
-    .addUserOption(o => o.setName("user").setRequired(true))
-    .addRoleOption(o => o.setName("role").setRequired(true)),
-
-  new SlashCommandBuilder()
     .setName("denyrole")
-    .setDescription("Block role in category")
+    .setDescription("Deny role in category")
     .addRoleOption(o => o.setName("role").setRequired(true))
     .addChannelOption(o => o.setName("category").setRequired(true)),
-
-  new SlashCommandBuilder()
-    .setName("allowrole")
-    .setDescription("Whitelist role"),
 
   new SlashCommandBuilder()
     .setName("allowbotrole")
@@ -116,17 +114,7 @@ client.on("interactionCreate", async (interaction) => {
   const { commandName } = interaction;
 
   // =====================
-  // SYNC ROLE
-  // =====================
-  if (commandName === "syncrole") {
-    const user = interaction.options.getUser("user");
-    const role = interaction.options.getRole("role");
-
-    return interaction.reply(`✅ Saved role ${role.name} for ${user.tag}`);
-  }
-
-  // =====================
-  // DENY ROLE (ADMIN ONLY)
+  // DENY ROLE (FULL CATEGORY)
   // =====================
   if (commandName === "denyrole") {
     if (!(await isBotAdmin(interaction))) {
@@ -136,29 +124,31 @@ client.on("interactionCreate", async (interaction) => {
     const role = interaction.options.getRole("role");
     const category = interaction.options.getChannel("category");
 
-    await category.permissionOverwrites.edit(role, {
-      ViewChannel: false,
-      SendMessages: false
-    });
-
-    return interaction.reply(`🚫 Role ${role.name} denied in ${category.name}`);
-  }
-
-  // =====================
-  // ALLOW ROLE (ADMIN ONLY)
-  // =====================
-  if (commandName === "allowrole") {
-    if (!(await isBotAdmin(interaction))) {
-      return interaction.reply({ content: "❌ Nu ai acces la comanda asta", ephemeral: true });
+    if (category.type !== 4) {
+      return interaction.reply({ content: "❌ Trebuie să alegi o categorie", ephemeral: true });
     }
 
-    const role = interaction.options.getRole("role");
+    const channels = interaction.guild.channels.cache.filter(
+      c => c.parentId === category.id
+    );
 
-    return interaction.reply(`✅ Role ${role.name} added to system`);
+    for (const channel of channels.values()) {
+      await channel.permissionOverwrites.edit(role, {
+        ViewChannel: false,
+        SendMessages: false,
+        ReadMessageHistory: false
+      });
+    }
+
+    await sendLog(interaction.guild,
+      `🚫 DENY ROLE\nUser: ${interaction.user.tag}\nRole: ${role.name}\nCategory: ${category.name}`
+    );
+
+    return interaction.reply(`🚫 Rolul ${role.name} a fost blocat în ${category.name}`);
   }
 
   // =====================
-  // SET BOT ADMIN ROLE (OWNER ONLY)
+  // SET BOT ADMIN ROLE
   // =====================
   if (commandName === "allowbotrole") {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
@@ -172,6 +162,10 @@ client.on("interactionCreate", async (interaction) => {
 
     config.botAdminRole = role.id;
     await config.save();
+
+    await sendLog(interaction.guild,
+      `🛡 BOT ADMIN SET\nUser: ${interaction.user.tag}\nRole: ${role.name}`
+    );
 
     return interaction.reply(`🛡 Bot admin role set: ${role.name}`);
   }
@@ -194,11 +188,13 @@ client.on("interactionCreate", async (interaction) => {
       await config.save();
     }
 
+    await sendLog(interaction.guild,
+      `🗑 BOT ADMIN REMOVED\nUser: ${interaction.user.tag}\nRole: ${role.name}`
+    );
+
     return interaction.reply(`🗑 Bot admin role removed: ${role.name}`);
   }
 });
 
-// =====================
-// LOGIN
 // =====================
 client.login(TOKEN);
