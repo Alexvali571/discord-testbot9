@@ -257,6 +257,15 @@ const commands = [
         .setRequired(true)
   ),
 
+  new SlashCommandBuilder()
+  .setName("synccategory")
+  .setDescription("Sync all channels in a category with category permissions")
+  .addChannelOption(o =>
+    o.setName("category")
+      .setDescription("Select category")
+      .setRequired(true)
+  )
+
 ].map(c => c.toJSON());
 
 // ===================== REGISTER =====================
@@ -337,44 +346,96 @@ client.on("interactionCreate", async (interaction) => {
   }
 }
 
-  // ===================== SYNCCHANNEL =====================
+  if (commandName === "synccategory") {
+
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      ephemeral: true
+    });
+  }
+
+  const category = interaction.options.getChannel("category");
+
+  if (!category || category.type !== 4) { // 4 = Category
+    return interaction.reply({
+      content: "❌ Please select a valid category",
+      ephemeral: true
+    });
+  }
+
+  try {
+    const channels = interaction.guild.channels.cache.filter(
+      c => c.parentId === category.id
+    );
+
+    let count = 0;
+
+    for (const ch of channels.values()) {
+      await ch.permissionOverwrites.set(category.permissionOverwrites.cache);
+      count++;
+    }
+
+    await sendLog(
+      interaction.guild,
+      `🔄 SYNC CATEGORY\nCategory: ${category.name}\nChannels: ${count}\nUser: ${interaction.user.tag}`
+    );
+
+    return interaction.reply({
+      content: `✅ Synced ${count} channels in ${category.name}`,
+      ephemeral: false
+    });
+
+  } catch (err) {
+    console.error(err);
+    return interaction.reply({
+      content: "❌ Failed to sync category",
+      ephemeral: true
+    });
+  }
+}
+
 if (commandName === "syncchannel") {
 
   if (!(await isBotAdmin(interaction))) {
     return interaction.reply({
       content: "❌ No permission",
-      flags: 64
+      ephemeral: true
     });
   }
 
   const channel = interaction.options.getChannel("channel");
 
-  if (!channel.parent) {
+  if (!channel || !channel.parentId) {
     return interaction.reply({
-      content: "❌ Channel has no category",
-      flags: 64
+      content: "❌ Channel is not inside a category",
+      ephemeral: true
     });
   }
 
   try {
+    const category = await interaction.guild.channels.fetch(channel.parentId);
 
-    await channel.lockPermissions();
+    const categoryPerms = category.permissionOverwrites.cache;
+
+    // reset channel to category perms
+    await channel.permissionOverwrites.set(categoryPerms);
 
     await sendLog(
       interaction.guild,
-      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nUser: ${interaction.user.tag}`
+      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
     );
 
-    return interaction.reply(
-      `✅ Channel ${channel.name} synchronized with category ${channel.parent.name}`
-    );
+    return interaction.reply({
+      content: `✅ ${channel.name} synced with ${category.name}`,
+      ephemeral: false
+    });
 
   } catch (err) {
     console.error(err);
-
     return interaction.reply({
-      content: "❌ Error while syncing channel",
-      flags: 64
+      content: "❌ Failed to sync channel",
+      ephemeral: true
     });
   }
 }
