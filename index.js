@@ -186,13 +186,13 @@ const commands = [
           { name: "alls", value: "alls" }
         )
     )
-new SlashCommandBuilder()
-  .setName("syncchannel")
-  .setDescription("Sync channel permissions with its category")
-  .addChannelOption(o =>
-    o.setName("channel")
-      .setDescription("Select channel")
-      .setRequired(true)
+  new SlashCommandBuilder()
+    .setName("syncchannel")
+    .setDescription("Sync channel permissions with its category")
+    .addChannelOption(o =>
+      o.setName("channel")
+        .setDescription("Select channel")
+        .setRequired(true)
   )
 
 ].map(c => c.toJSON());
