@@ -7,8 +7,6 @@ const {
   SlashCommandBuilder,
   PermissionsBitField
 } = require("discord.js");
-process.on("unhandledRejection", console.error);
-process.on("uncaughtException", console.error);
 const mongoose = require("mongoose");
 
 // ===================== EXPRESS =====================
@@ -30,7 +28,10 @@ const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 // ===================== MONGO =====================
 mongoose.connect(MONGO_URI, {
   serverSelectionTimeoutMS: 30000
-});
+})
+.then(() => console.log("✅ MongoDB connected"))
+.catch(err => console.error("❌ MongoDB error:", err));
+
 mongoose.connection.on("disconnected", () => {
   console.log("❌ MongoDB disconnected");
 });
@@ -38,8 +39,6 @@ mongoose.connection.on("disconnected", () => {
 mongoose.connection.on("connected", () => {
   console.log("✅ MongoDB connected");
 });
-  .then(() => console.log("MongoDB connected"))
-  .catch(err => console.log(err));
 
 // ===================== DB =====================
 const guildSchema = new mongoose.Schema({
@@ -57,6 +56,10 @@ const client = new Client({
   ]
 });
 
+client.on("clientReady", () => {
+  console.log("✅ Discord gateway connected");
+});
+
 client.on("shardDisconnect", (event, id) => {
   console.log("❌ Shard disconnected", id, event?.code);
 });
@@ -68,12 +71,6 @@ client.on("shardReconnecting", (id) => {
 client.on("shardResume", (id, replayed) => {
   console.log("✅ Shard resumed", id, replayed);
 });
-
-process.on("unhandledRejection", console.error);
-process.on("uncaughtException", console.error);
-
-client.on("error", console.error);
-client.on("warn", console.warn);
 
 setInterval(() => {
   console.log(
