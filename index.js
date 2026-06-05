@@ -453,24 +453,32 @@ if (commandName === "syncrole") {
   const role = interaction.options.getRole("role");
   const category = interaction.options.getChannel("category");
 
-  if (!category || category.type !== 4) {
-    return interaction.reply({
-      content: "❌ Select a category",
-      ephemeral: true
-    });
-  }
-
   const sourceOverwrite =
     category.permissionOverwrites.cache.get(role.id);
 
   if (!sourceOverwrite) {
     return interaction.reply({
-      content: "❌ Role has no overwrite in source category",
+      content: "❌ Role has no permissions in selected category",
       ephemeral: true
     });
   }
 
   try {
+
+    const permissions = {};
+
+    for (const perm of PermissionsBitField.FlagsKeys ?? Object.keys(PermissionsBitField.Flags)) {
+
+      const flag = PermissionsBitField.Flags[perm];
+
+      if (sourceOverwrite.allow.has(flag)) {
+        permissions[perm] = true;
+      }
+      else if (sourceOverwrite.deny.has(flag)) {
+        permissions[perm] = false;
+      }
+
+    }
 
     const categories =
       interaction.guild.channels.cache.filter(
@@ -478,12 +486,7 @@ if (commandName === "syncrole") {
       );
 
     for (const cat of categories.values()) {
-
-      await cat.permissionOverwrites.edit(role, {
-        allow: sourceOverwrite.allow.bitfield,
-        deny: sourceOverwrite.deny.bitfield
-      });
-
+      await cat.permissionOverwrites.edit(role, permissions);
     }
 
     await sendLog(
@@ -494,10 +497,9 @@ Source: ${category.name}
 User: ${interaction.user.tag}`
     );
 
-    return interaction.reply({
-      content: `✅ Copied ALL permissions from ${category.name} to all categories`,
-      ephemeral: false
-    });
+    return interaction.reply(
+      `✅ Copied all role permissions from ${category.name}`
+    );
 
   } catch (err) {
     console.error(err);
