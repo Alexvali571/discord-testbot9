@@ -28,7 +28,16 @@ const MONGO_URI = process.env.MONGO_URI;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID;
 
 // ===================== MONGO =====================
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 30000
+});
+mongoose.connection.on("disconnected", () => {
+  console.log("❌ MongoDB disconnected");
+});
+
+mongoose.connection.on("connected", () => {
+  console.log("✅ MongoDB connected");
+});
   .then(() => console.log("MongoDB connected"))
   .catch(err => console.log(err));
 
@@ -48,6 +57,18 @@ const client = new Client({
   ]
 });
 
+client.on("shardDisconnect", (event, id) => {
+  console.log("❌ Shard disconnected", id, event?.code);
+});
+
+client.on("shardReconnecting", (id) => {
+  console.log("🔄 Shard reconnecting", id);
+});
+
+client.on("shardResume", (id, replayed) => {
+  console.log("✅ Shard resumed", id, replayed);
+});
+
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
@@ -55,9 +76,12 @@ client.on("error", console.error);
 client.on("warn", console.warn);
 
 setInterval(() => {
-  if (client.user) {
-    console.log("🟢 Bot alive:", client.user.tag);
-  }
+  console.log(
+    "Status:",
+    client.ws.status,
+    "Ping:",
+    client.ws.ping
+  );
 }, 60000);
 
 // ================🔧 SAFE HANDLERS====================
@@ -172,7 +196,7 @@ async function register() {
 }
 
 // ===================== READY =====================
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`Logged in as ${client.user.tag}`);
   await register();
 });
