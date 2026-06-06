@@ -666,9 +666,15 @@ const applyPerms = async (ch) => {
     );
 
     if (mode === "category") {
+
+      // categoria însăși
+      await applyPerms(category);
+
+      // toate canalele din categorie
       for (const ch of categoryChannels.values()) {
         await applyPerms(ch);
       }
+
     }
 
     if (mode === "alls") {
