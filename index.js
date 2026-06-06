@@ -21,6 +21,7 @@ process.on("uncaughtException", (err) => {
 
 // ===================== EXPRESS =====================
 const app = express();
+
 app.get("/", (req, res) => res.send("Bot is running"));
 
 app.get("/health", (req, res) => {
@@ -29,6 +30,14 @@ app.get("/health", (req, res) => {
     discord: client?.ws?.status === 0 ? "online" : "offline",
     uptime: process.uptime()
   });
+});
+
+app.get("/health", (req, res) => {
+  if (!client.isReady()) {
+    return res.status(500).send("Discord Offline");
+  }
+
+  res.status(200).send("Discord Online");
 });
 
 const PORT = process.env.PORT || 3000;
@@ -190,16 +199,16 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("denyrole")
-    .setDescription("Deny role in category")
+    .setDescription("Deny role in channel or category")
     .addRoleOption(o =>
       o.setName("role")
-        .setDescription("Select role")
-        .setRequired(true)
+      .setDescription("Select role")
+      .setRequired(true)
     )
     .addChannelOption(o =>
-      o.setName("category")
-        .setDescription("Select category")
-        .setRequired(true)
+      o.setName("target")
+      .setDescription("Select channel or category")
+      .setRequired(true)
     ),
 
   new SlashCommandBuilder()
@@ -511,33 +520,62 @@ User: ${interaction.user.tag}`
   }
 }
 
-  // ===================== DENYROLE =====================
-  if (commandName === "denyrole") {
-    if (!(await isBotAdmin(interaction))) {
-      return interaction.reply({ content: "❌ No permission", ephemeral: true });
-    }
+// ===================== DENYROLE =====================
+if (commandName === "denyrole") {
 
-    const role = interaction.options.getRole("role");
-    const category = interaction.options.getChannel("category");
-
-    const channels = interaction.guild.channels.cache.filter(
-      c => c.parentId === category.id
-    );
-
-    for (const ch of channels.values()) {
-      await ch.permissionOverwrites.edit(role, {
-        ViewChannel: false,
-        SendMessages: false,
-        ReadMessageHistory: false
-      });
-    }
-
-    await sendLog(interaction.guild,
-      `🚫 DENY ROLE\nRole: ${role.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
-    );
-
-    return interaction.reply(`🚫 Denied role in category`);
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      ephemeral: true
+    });
   }
+
+  const role = interaction.options.getRole("role");
+  const target = interaction.options.getChannel("target");
+
+  const denyAll = {};
+
+  for (const perm of Object.keys(PermissionsBitField.Flags)) {
+    denyAll[perm] = false;
+  }
+
+  try {
+
+    // pune toate permisiunile pe X
+    await target.permissionOverwrites.edit(role, denyAll);
+
+    // dacă este categorie sincronizează toate canalele
+    if (target.type === 4) {
+
+      const channels = interaction.guild.channels.cache.filter(
+        c => c.parentId === target.id
+      );
+
+      for (const ch of channels.values()) {
+        await ch.lockPermissions();
+      }
+
+    }
+
+    await sendLog(
+      interaction.guild,
+      `🚫 DENY ROLE\nRole: ${role.name}\nTarget: ${target.name}\nUser: ${interaction.user.tag}`
+    );
+
+    return interaction.reply(`🚫 ${role.name} denied in ${target.name}`);
+
+  } catch (err) {
+
+    console.error(err);
+
+    return interaction.reply({
+      content: "❌ Error",
+      ephemeral: true
+    });
+
+  }
+
+}
 
   // ===================== ALLOW BOT ROLE =====================
   if (commandName === "allowbotrole") {
@@ -596,18 +634,32 @@ User: ${interaction.user.tag}`
 
     const member = await interaction.guild.members.fetch(memberUser.id);
 
-    const applyPerms = async (ch) => {
-      const perms = ch.permissionOverwrites.cache.get(role.id);
-      if (!perms) return;
+const applyPerms = async (ch) => {
 
-      const data = {
-        ViewChannel: perms.allow.has("ViewChannel"),
-        SendMessages: perms.allow.has("SendMessages"),
-        ReadMessageHistory: perms.allow.has("ReadMessageHistory")
-      };
+  const perms = ch.permissionOverwrites.cache.get(role.id);
+  if (!perms) return;
 
-      await ch.permissionOverwrites.edit(member, data);
-    };
+  const allowData = {};
+  const denyData = {};
+
+  for (const perm of Object.keys(PermissionsBitField.Flags)) {
+
+    if (perms.allow.has(perm)) {
+      allowData[perm] = true;
+    }
+
+    if (perms.deny.has(perm)) {
+      denyData[perm] = false;
+    }
+
+  }
+
+  await ch.permissionOverwrites.edit(member, {
+    ...allowData,
+    ...denyData
+  });
+
+};
 
     const categoryChannels = interaction.guild.channels.cache.filter(
       c => c.parentId === category.id
