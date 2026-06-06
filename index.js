@@ -287,7 +287,31 @@ const commands = [
       o.setName("target")
         .setDescription("Channel to receive permissions")
         .setRequired(true)
-  )
+  ),
+
+  new SlashCommandBuilder()
+    .setName("copyrolrolecategory")
+    .setDescription("Copy role permissions from a source channel/category to another role in another channel/category")
+    .addRoleOption(o =>
+      o.setName("role1")
+        .setDescription("Source role")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("source")
+        .setDescription("Source channel/category")
+        .setRequired(true)
+    )
+    .addRoleOption(o =>
+      o.setName("role2")
+        .setDescription("Target role")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("target")
+        .setDescription("Target channel/category")
+        .setRequired(true)
+)
 
 ].map(c => c.toJSON());
 
@@ -746,6 +770,80 @@ const applyPerms = async (ch) => {
     }
 
   }
+
+  // ===================== COPY ROLE -> ROLE =====================
+	if (commandName === "copyrolrolecategory") {
+
+		if (!(await isBotAdmin(interaction))) {
+			return interaction.reply({
+				content: "❌ No permission",
+				ephemeral: true
+			});
+		}
+
+		const role1 = interaction.options.getRole("role1");
+		const source = interaction.options.getChannel("source");
+
+		const role2 = interaction.options.getRole("role2");
+		const target = interaction.options.getChannel("target");
+
+		try {
+
+			const perms = source.permissionOverwrites.cache.get(role1.id);
+
+			if (!perms) {
+				return interaction.reply({
+					content: "❌ Source role has no permissions in source channel/category",
+					ephemeral: true
+				});
+			}
+
+			const allowData = {};
+			const denyData = {};
+
+			for (const perm of Object.keys(PermissionsBitField.Flags)) {
+
+				if (perms.allow.has(perm)) {
+					allowData[perm] = true;
+				}
+
+				if (perms.deny.has(perm)) {
+					denyData[perm] = false;
+				}
+
+			}
+
+			await target.permissionOverwrites.edit(role2, {
+				...allowData,
+				...denyData
+			});
+
+			await sendLog(
+				interaction.guild,
+				`🔄 COPY ROLE TO ROLE
+          Source role: ${role1.name}
+          Source: ${source.name}
+          Target role: ${role2.name}
+          Target: ${target.name}
+          User: ${interaction.user.tag}`
+			);
+
+			return interaction.reply(
+				`✅ Copied permissions from ${role1.name} (${source.name}) to ${role2.name} (${target.name})`
+			);
+
+		} catch (err) {
+
+			console.error(err);
+
+			return interaction.reply({
+				content: "❌ Error while copying permissions",
+				ephemeral: true
+			});
+
+		}
+
+	}
 });
 
 // =====================
