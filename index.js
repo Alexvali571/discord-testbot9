@@ -267,12 +267,26 @@ const commands = [
   ),
 
   new SlashCommandBuilder()
-  .setName("synccategory")
-  .setDescription("Sync all channels in a category with category permissions")
-  .addChannelOption(o =>
-    o.setName("category")
-      .setDescription("Select category")
-      .setRequired(true)
+    .setName("synccategory")
+    .setDescription("Sync all channels in a category with category permissions")
+    .addChannelOption(o =>
+      o.setName("category")
+        .setDescription("Select category")
+        .setRequired(true)
+  ),
+
+  new SlashCommandBuilder()
+    .setName("copychannelp")
+    .setDescription("Copy all permissions from one channel to another")
+    .addChannelOption(o =>
+      o.setName("source")
+        .setDescription("Channel with permissions")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("target")
+        .setDescription("Channel to receive permissions")
+        .setRequired(true)
   )
 
 ].map(c => c.toJSON());
@@ -689,6 +703,48 @@ const applyPerms = async (ch) => {
     );
 
     return interaction.reply(`✅ Copied permissions`);
+  }
+
+  // ===================== COPYCHANNELP =====================
+  if (commandName === "copychannelp") {
+
+    if (!(await isBotAdmin(interaction))) {
+      return interaction.reply({
+        content: "❌ No permission",
+        ephemeral: true
+      });
+    }
+
+    const source = interaction.options.getChannel("source");
+    const target = interaction.options.getChannel("target");
+
+    try {
+
+    // copiază toate permisiunile tuturor rolurilor și membrilor
+      await target.permissionOverwrites.set(
+        source.permissionOverwrites.cache
+      );
+
+      await sendLog(
+        interaction.guild,
+        `📋 COPY CHANNEL PERMISSIONS\nSource: ${source.name}\nTarget: ${target.name}\nUser: ${interaction.user.tag}`
+      );
+
+      return interaction.reply({
+        content: `✅ Copied permissions from ${source.name} to ${target.name}`
+      });
+
+    } catch (err) {
+
+      console.error(err);
+
+      return interaction.reply({
+        content: "❌ Failed to copy permissions",
+        ephemeral: true
+      });
+
+    }
+
   }
 });
 
