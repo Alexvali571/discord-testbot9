@@ -2046,15 +2046,11 @@ User: ${interaction.user.tag}`
  	   const warnCount =
   	      data.warns.length;
 
-  	  const security =
-    	    
-
-    	        interaction.guild.id,
-   	         member.id
-
-     	   );
-		return interaction.reply(`✅ Warned ${member.user.tag} | ${actionMsg}`);
-	} // 👈 ASTA ESTE ÎNCHIDEREA CORECTĂ
+		const security = await StaffSecurity.findOne({
+ 		 guildId: interaction.guild.id,
+ 		 userId: member.id
+	});
+}
 
 // =====================
 console.log("Starting bot...");
