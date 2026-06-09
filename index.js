@@ -844,6 +844,7 @@ new SlashCommandBuilder()
 new SlashCommandBuilder()
 	.setName("topstaffwarns")
 	.setDescription("Top staff warns")
+),
 
 new SlashCommandBuilder()
 	.setName("setstafflog")
