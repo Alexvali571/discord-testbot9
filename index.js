@@ -1335,7 +1335,7 @@ if (commandName === "warnstaff") {
 	    await data.save();
 
  	   // SECURITY LEVEL
-  	  const security = await getSecurityLevel(interaction.guild.id, member.id);
+  	  const security = interaction.guild.id, member.id);
 
  	   const config = await StaffConfig.findOne({
 	        guildId: interaction.guild.id
@@ -2047,12 +2047,14 @@ User: ${interaction.user.tag}`
   	      data.warns.length;
 
   	  const security =
-    	    await getSecurityLevel(
+    	    
 
     	        interaction.guild.id,
    	         member.id
 
      	   );
+		return interaction.reply(`✅ Warned ${member.user.tag} | ${actionMsg}`);
+	} // 👈 ASTA ESTE ÎNCHIDEREA CORECTĂ
 
 // =====================
 console.log("Starting bot...");
