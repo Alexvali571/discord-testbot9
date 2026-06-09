@@ -224,6 +224,7 @@ const staffConfigSchema = new mongoose.Schema({
     staffRoleId: String,
     memberRoleId: String
 });
+
 const StaffConfig = mongoose.model(
     "StaffConfig",
     staffConfigSchema
