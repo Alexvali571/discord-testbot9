@@ -1335,7 +1335,7 @@ if (commandName === "warnstaff") {
 	    await data.save();
 
  	   // SECURITY LEVEL
-  	  const security = interaction.guild.id, member.id);
+		const security = await getSecurityLevel(interaction.guild.id, member.id);
 
  	   const config = await StaffConfig.findOne({
 	        guildId: interaction.guild.id
