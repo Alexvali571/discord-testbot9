@@ -234,8 +234,6 @@ async function freezeMember(member, durationMs) {
     }, durationMs);
 }
 
-});
-
 // ===================== SUSPEND SYSTEM =====================
 const suspendCache = new Map();
 
