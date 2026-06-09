@@ -216,39 +216,89 @@ const StaffProbation = mongoose.model(
 );
 
 const staffConfigSchema = new mongoose.Schema({
-
     guildId: String,
-
-    logChannelId: String
-
+    logChannelId: String,
+    freezeRoleId: String,
+    suspendRoleId: String,
+    demoteRoleId: String,
+    staffRoleId: String,
+    memberRoleId: String
 });
-
 const StaffConfig = mongoose.model(
     "StaffConfig",
     staffConfigSchema
 );
-
-const staffConfigSchema = new mongoose.Schema({
-
-    guildId: String,
-
-    logChannelId: String,
-
-    freezeRoleId: String,
-
-    suspendRoleId: String,
-
-    demoteRoleId: String,
-
-    staffRoleId: String
-
-});
 
 const StaffConfig =
 mongoose.model(
     "StaffConfig",
     staffConfigSchema
 );
+
+// ===================== FREEZE SYSTEM =====================
+const freezeCache = new Map();
+
+async function freezeMember(member, durationMs) {
+
+    const config = await StaffConfig.findOne({
+        guildId: member.guild.id
+    });
+
+    if (!config) return;
+
+    const staffRoleId = config.staffRoleId;
+    const freezeRoleId = config.freezeRoleId;
+
+    const guild = member.guild;
+
+    // salvează rolurile
+    const savedRoles = member.roles.cache
+        .filter(r => r.id !== guild.id)
+        .map(r => r.id);
+
+    freezeCache.set(`${guild.id}-${member.id}`, savedRoles);
+
+    // scoate staff + pune freeze
+    if (staffRoleId)
+        await member.roles.remove(staffRoleId).catch(() => {});
+
+    if (freezeRoleId)
+        await member.roles.add(freezeRoleId).catch(() => {});
+
+    // permisiuni pe canale
+    guild.channels.cache.forEach(channel => {
+
+        const perms = channel.permissionsFor(staffRoleId);
+
+        channel.permissionOverwrites.edit(member.id, {
+            ViewChannel: perms?.has("ViewChannel") || false,
+            Connect: perms?.has("Connect") || false
+        }).catch(() => {});
+
+    });
+
+    // 🔓 UNFREEZE după timp
+    setTimeout(async () => {
+
+        const fresh = await guild.members.fetch(member.id).catch(() => null);
+        if (!fresh) return;
+
+        const saved = freezeCache.get(`${guild.id}-${member.id}`);
+
+        if (freezeRoleId)
+            await fresh.roles.remove(freezeRoleId).catch(() => {});
+
+        if (saved)
+            await fresh.roles.set(saved).catch(() => {});
+
+        guild.channels.cache.forEach(channel => {
+            channel.permissionOverwrites.delete(member.id).catch(() => {});
+        });
+
+        freezeCache.delete(`${guild.id}-${member.id}`);
+
+    }, durationMs);
+}
 
 const staffSecuritySchema = new mongoose.Schema({
 
@@ -264,6 +314,70 @@ const staffSecuritySchema = new mongoose.Schema({
     }
 
 });
+
+// ===================== SUSPEND SYSTEM =====================
+const suspendCache = new Map();
+
+async function suspendMember(member, durationMs, reason) {
+
+    const config = await StaffConfig.findOne({
+        guildId: member.guild.id
+    });
+
+    if (!config) return;
+
+    const staffRoleId = config.staffRoleId;
+    const suspendRoleId = config.suspendRoleId;
+
+    const guild = member.guild;
+
+    // 🔥 SALVEAZĂ TOATE ROLURILE REALE
+    const savedRoles = member.roles.cache
+        .filter(r => r.id !== guild.id)
+        .map(r => r.id);
+
+    suspendCache.set(`${guild.id}-${member.id}`, savedRoles);
+
+    // ❌ scoate staff role
+    if (staffRoleId)
+        await member.roles.remove(staffRoleId).catch(() => {});
+
+    // ⛔ pune suspend role
+    if (suspendRoleId)
+        await member.roles.add(suspendRoleId).catch(() => {});
+
+    // 🧾 LOG
+    const logCh = guild.channels.cache.get(config.logChannelId);
+    if (logCh) {
+        logCh.send(
+`⛔ SUSPEND
+
+User: ${member.user.tag}
+Reason: ${reason}
+Duration: ${durationMs / 1000}s`
+        ).catch(() => {});
+    }
+
+    // ⏱ RESTORE
+    setTimeout(async () => {
+
+        const fresh = await guild.members.fetch(member.id).catch(() => null);
+        if (!fresh) return;
+
+        const saved = suspendCache.get(`${guild.id}-${member.id}`);
+
+        // scoate suspend role
+        if (suspendRoleId)
+            await fresh.roles.remove(suspendRoleId).catch(() => {});
+
+        // 🔥 RESTAUREAZĂ TOATE ROLURILE
+        if (saved)
+            await fresh.roles.set(saved).catch(() => {});
+
+        suspendCache.delete(`${guild.id}-${member.id}`);
+
+    }, durationMs);
+}
 
 const StaffSecurity =
 mongoose.model(
@@ -420,24 +534,30 @@ async function getWarnCount(guildId, userId) {
 
 }
 
-async function applyStaffAction(member, action, durationMs, reason) {
-
+async function applyStaffAction(member, action, durationMs, reason, config) {
     try {
 
+        const staffRoleId = config?.staffRoleId;
+        const memberRoleId = config?.memberRoleId;
+
+        // ================= FREEZE =================
         if (action === "freeze") {
-            await member.timeout(durationMs, reason);
-        }
+  		  await freezeMember(member, durationMs);
+		}
 
+        // ================= SUSPEND (NOU LOGIC) =================
         if (action === "suspend") {
-            await member.timeout(durationMs, reason);
-        }
+   			await suspendMember(member, durationMs, reason);
+		}
 
+        // ================= REMOVE =================
         if (action === "remove") {
             await member.roles.cache.forEach(r => {
                 if (r.name !== "@everyone") member.roles.remove(r);
             });
         }
 
+        // ================= DEMOTE =================
         if (action === "demote") {
             await member.roles.cache.forEach(r => {
                 if (r.name !== "@everyone") member.roles.remove(r);
@@ -447,7 +567,6 @@ async function applyStaffAction(member, action, durationMs, reason) {
     } catch (e) {
         console.log("Action error:", e);
     }
-
 }
 
 // ===================== STAFF SECURITY =====================
@@ -748,6 +867,15 @@ new SlashCommandBuilder()
 	.addStringOption(o =>
     	o.setName("reason")
     	.setDescription("Reason")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("setmemberrole")
+	.setDescription("Set member role for suspend system")
+	.addRoleOption(o =>
+    	o.setName("role")
+    	.setDescription("Member role")
     	.setRequired(true)
 ),
 
@@ -1367,7 +1495,17 @@ if (commandName === "warnstaff") {
     	if (warnCount === 5) {
         	actionMsg = "Demote + suspend 12h + freeze 48h";
         	await applyStaffAction(member, "demote", 0, reason);
-        	await applyStaffAction(member, "suspend", 12 * 60 * 60 * 1000, reason);
+        	const config = await StaffConfig.findOne({
+    guildId: interaction.guild.id
+});
+
+await applyStaffAction(
+    member,
+    "suspend",
+    12 * 60 * 60 * 1000,
+    reason,
+    config
+);
         	await applyStaffAction(member, "freeze", 48 * 60 * 60 * 1000, reason);
     	}
 
@@ -1844,6 +1982,33 @@ User: ${interaction.user.tag}`
 			});
 
 		}
+	}
+
+	if (commandName === "setmemberrole") {
+
+	    if (!(await isBotAdmin(interaction))) {
+	        return interaction.reply({
+  	          content: "❌ No permission",
+    	        ephemeral: true
+	        });
+	    }
+
+  	  const role = interaction.options.getRole("role");
+
+	    let config = await StaffConfig.findOne({
+   	     guildId: interaction.guild.id
+	    });
+
+ 	   if (!config) {
+    	    config = await StaffConfig.create({
+         	   guildId: interaction.guild.id
+       	 });
+  	  }
+
+ 	   config.memberRoleId = role.id;
+  	  await config.save();
+	
+    	return interaction.reply(`✅ Member role set to ${role.name}`);
 	}
 
 	if (commandName === "setstafflog") {
