@@ -842,10 +842,6 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-	.setName("topstaffwarns")
-	.setDescription("Top staff warns")
-
-new SlashCommandBuilder()
 	.setName("setstafflog")
 	.setDescription("Set staff log channel")
 	.addChannelOption(o =>
@@ -924,7 +920,11 @@ new SlashCommandBuilder()
 	    o.setName("member")
 	    .setDescription("Member")
   	  .setRequired(true)
-)
+),
+
+new SlashCommandBuilder()
+	.setName("topstaffwarns")
+	.setDescription("Top staff warns")
 
 ].map(c => c.toJSON());
 
