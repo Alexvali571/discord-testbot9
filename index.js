@@ -74,6 +74,242 @@ const guildSchema = new mongoose.Schema({
 
 const GuildConfig = mongoose.model("GuildConfig", guildSchema);
 
+
+const staffWarnSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    warns: [
+        {
+
+            reason: String,
+            severity: Number,
+            task: String,
+
+            moderatorId: String,
+
+            date: {
+                type: Date,
+                default: Date.now
+            },
+
+            expireAt: Date
+
+        }
+    ]
+
+});
+
+const StaffWarn = mongoose.model(
+    "StaffWarn",
+    staffWarnSchema
+);
+
+const staffSecuritySchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    level: {
+        type: Number,
+        default: 1
+    }
+
+});
+
+const StaffSecurity = mongoose.model(
+    "StaffSecurity",
+    staffSecuritySchema
+);
+
+const staffFreezeSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    expiresAt: Date,
+
+    permissions: Object
+
+});
+
+const StaffFreeze = mongoose.model(
+    "StaffFreeze",
+    staffFreezeSchema
+);
+
+const staffSuspendSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    savedRoles: [String],
+
+    expiresAt: Date
+
+});
+
+const StaffSuspend = mongoose.model(
+    "StaffSuspend",
+    staffSuspendSchema
+);
+
+const staffDemoteSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    oldRoles: [String],
+
+    reason: String,
+
+    date: {
+        type: Date,
+        default: Date.now
+    }
+
+});
+
+const StaffDemote = mongoose.model(
+    "StaffDemote",
+    staffDemoteSchema
+);
+
+const staffBlacklistSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    moderatorId: String,
+
+    date: {
+        type: Date,
+        default: Date.now
+    }
+
+});
+
+const StaffBlacklist = mongoose.model(
+    "StaffBlacklist",
+    staffBlacklistSchema
+);
+
+const staffProbationSchema = new mongoose.Schema({
+
+    guildId: String,
+    userId: String,
+
+    expiresAt: Date
+
+});
+
+const StaffProbation = mongoose.model(
+    "StaffProbation",
+    staffProbationSchema
+);
+
+const staffConfigSchema = new mongoose.Schema({
+
+    guildId: String,
+
+    logChannelId: String
+
+});
+
+const StaffConfig = mongoose.model(
+    "StaffConfig",
+    staffConfigSchema
+);
+
+const staffConfigSchema = new mongoose.Schema({
+
+    guildId: String,
+
+    logChannelId: String,
+
+    freezeRoleId: String,
+
+    suspendRoleId: String,
+
+    demoteRoleId: String,
+
+    staffRoleId: String
+
+});
+
+const StaffConfig =
+mongoose.model(
+    "StaffConfig",
+    staffConfigSchema
+);
+
+const staffSecuritySchema = new mongoose.Schema({
+
+    guildId: String,
+
+    userId: String,
+
+    level: {
+
+        type: Number,
+        default: 1
+
+    }
+
+});
+
+const StaffSecurity =
+mongoose.model(
+    "StaffSecurity",
+    staffSecuritySchema
+);
+
+const staffWarnSchema = new mongoose.Schema({
+
+    guildId: String,
+
+    userId: String,
+
+    warns: [
+
+        {
+
+            reason: String,
+
+            severity: Number,
+
+            task: String,
+
+            moderatorId: String,
+
+            createdAt: {
+
+                type: Date,
+                default: Date.now
+
+            },
+
+            expireAt: Date
+
+        }
+
+    ]
+
+});
+
+const StaffWarn =
+mongoose.model(
+    "StaffWarn",
+    staffWarnSchema
+);
+
 // ===================== CLIENT =====================
 const client = new Client({
   intents: [
@@ -171,6 +407,61 @@ async function isBotAdmin(interaction) {
   return interaction.member.roles.cache.has(config.botAdminRole);
 }
 
+async function getWarnCount(guildId, userId) {
+
+    const data = await StaffWarn.findOne({
+        guildId,
+        userId
+    });
+
+    if (!data) return 0;
+
+    return data.warns.length;
+
+}
+
+async function applyStaffAction(member, action, durationMs, reason) {
+
+    try {
+
+        if (action === "freeze") {
+            await member.timeout(durationMs, reason);
+        }
+
+        if (action === "suspend") {
+            await member.timeout(durationMs, reason);
+        }
+
+        if (action === "remove") {
+            await member.roles.cache.forEach(r => {
+                if (r.name !== "@everyone") member.roles.remove(r);
+            });
+        }
+
+        if (action === "demote") {
+            await member.roles.cache.forEach(r => {
+                if (r.name !== "@everyone") member.roles.remove(r);
+            });
+        }
+
+    } catch (e) {
+        console.log("Action error:", e);
+    }
+
+}
+
+// ===================== STAFF SECURITY =====================
+async function getSecurityLevel(guildId, userId) {
+
+    const security = await StaffSecurity.findOne({
+        guildId,
+        userId
+    });
+
+    return security?.level || 1;
+
+}
+
 // ===================== LOG =====================
 async function sendLog(guild, msg) {
   try {
@@ -178,6 +469,32 @@ async function sendLog(guild, msg) {
     if (!ch) return;
     await ch.send(msg);
   } catch {}
+}
+
+async function sendStaffLog(guild, msg) {
+
+    try {
+
+        const config = await StaffConfig.findOne({
+            guildId: guild.id
+        });
+
+        if (!config?.logChannelId) return;
+
+        const ch = guild.channels.cache.get(
+            config.logChannelId
+        );
+
+        if (!ch) return;
+
+        await ch.send(msg);
+
+    } catch (err) {
+
+        console.error(err);
+
+    }
+
 }
 
 // ===================== COMMANDS =====================
@@ -313,7 +630,7 @@ const commands = [
         .setRequired(true)
 ),
 
-new SlashCommandBuilder()
+  new SlashCommandBuilder()
 	.setName("syncrolerole")
 	.setDescription("Sync all permissions from a role to another role")
 	.addRoleOption(o =>
@@ -325,6 +642,298 @@ new SlashCommandBuilder()
 	  o.setName("roletarget")
 	    .setDescription("Target role")
 	    .setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("warnstaff")
+	.setDescription("Give a staff warn")
+	.addUserOption(o =>
+ 	   o.setName("member")
+ 	   .setDescription("Staff member")
+  	  .setRequired(true)
+	)
+	.addIntegerOption(o =>
+ 	   o.setName("severity")
+  	  .setDescription("1-7")
+  	  .setRequired(true)
+ 	   .addChoices(
+    	    { name: "1", value: 1 },
+        	{ name: "2", value: 2 },
+        	{ name: "3", value: 3 },
+        	{ name: "4", value: 4 },
+        	{ name: "5", value: 5 },
+        	{ name: "6", value: 6 },
+        	{ name: "7", value: 7 }
+    	)
+	)
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+	)
+	.addStringOption(o =>
+    	o.setName("task")
+    	.setDescription("Task to remove warn")
+    	.setRequired(false)
+),
+
+new SlashCommandBuilder()
+	.setName("staffwarns")
+	.setDescription("Show active warns")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("removewarnstaff")
+	.setDescription("Remove one warn")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("warn")
+    	.setDescription("Warn number")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("clearstaffwarns")
+	.setDescription("Remove all warns")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffsecurity")
+	.setDescription("Set security level")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("level")
+    	.setDescription("1-7")
+    	.setRequired(true)
+    	.addChoices(
+        	{ name: "1", value: 1 },
+        	{ name: "2", value: 2 },
+        	{ name: "3", value: 3 },
+        	{ name: "4", value: 4 },
+        	{ name: "5", value: 5 },
+        	{ name: "6", value: 6 },
+        	{ name: "7", value: 7 }
+    	)
+),
+
+new SlashCommandBuilder()
+	.setName("stafffreeze")
+	.setDescription("Freeze a staff")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("hours")
+    	.setDescription("Hours")
+    	.setRequired(true)
+	)
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffunfreeze")
+	.setDescription("Remove freeze")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffsuspend")
+	.setDescription("Suspend staff")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("hours")
+    	.setDescription("Hours")
+    	.setRequired(true)
+	)
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffunsuspend")
+	.setDescription("Remove suspension")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffdemote")
+	.setDescription("Demote staff")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffblacklist")
+	.setDescription("Blacklist member")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffunblacklist")
+	.setDescription("Remove blacklist")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("staffprobation")
+	.setDescription("Put member in probation")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("days")
+    	.setDescription("Days")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("topstaffwarns")
+	.setDescription("Top staff warns")
+
+new SlashCommandBuilder()
+	.setName("setstafflog")
+	.setDescription("Set staff log channel")
+	.addChannelOption(o =>
+    	o.setName("channel")
+    	.setDescription("Channel")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+
+	.setName("setstafflog")
+	
+	.setDescription("Set staff log channel")
+
+	.addChannelOption(o =>
+    	o.setName("channel")
+    	.setDescription("Log channel")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+
+	.setName("staffsecurity")
+
+	.setDescription("Set staff security level")
+
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	
+	.addIntegerOption(o =>
+    	o.setName("level")
+    	.setDescription("1-7")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+
+	.setName("warnstaff")
+
+	.setDescription("Warn a staff member")
+
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+
+	.addStringOption(o =>
+    	o.setName("reason")
+    	.setDescription("Reason")
+    	.setRequired(true)
+	)
+
+	.addIntegerOption(o =>
+	    o.setName("severity")
+    	.setDescription("1-10")
+    	.setRequired(true)
+	)
+
+	.addStringOption(o =>
+    	o.setName("task")
+    	.setDescription("Task to remove warn")
+    	.setRequired(false)
+),
+
+new SlashCommandBuilder()
+
+	.setName("removewarnstaff")
+	
+	.setDescription("Remove one warn")
+	
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+
+	.setName("staffinfo")
+
+	.setDescription("View staff warnings")
+
+	.addUserOption(o =>
+	    o.setName("member")
+	    .setDescription("Member")
+  	  .setRequired(true)
 )
 
 ].map(c => c.toJSON());
@@ -350,6 +959,38 @@ client.once("ready", async () => {
     heartbeat();
     console.log("💓 heartbeat OK");
   }, 30000);
+
+	setInterval(async () => {
+
+    const all = await StaffWarn.find({});
+
+	    for (const user of all) {
+
+   	     let changed = false;
+
+   	     user.warns = user.warns.filter(w => {
+
+    	        if (!w.expireAt) return true;
+
+       	     if (w.expireAt > new Date()) return true;
+
+     	       changed = true;
+   	         return false;
+	
+     	   });
+
+     	   if (changed) {
+
+        	    await user.save();
+
+       	     console.log(`🧹 Expired warns cleaned for ${user.userId}`);
+
+ 	       }
+
+ 	   }
+
+	}, 60 * 60 * 1000); // 1h check
+
 });
 // ===================== COMMAND HANDLER =====================
 client.on("interactionCreate", async (interaction) => {
@@ -357,6 +998,152 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName } = interaction;
 
+  if (commandName === "setstafflog") {
+
+  	  if (!interaction.member.permissions.has(
+    	    PermissionsBitField.Flags.Administrator
+   	 )) {
+   	     return interaction.reply({
+    	        content: "❌ Only admin",
+        	    ephemeral: true
+       	 });
+   	 }
+
+    	const channel =
+        	interaction.options.getChannel("channel");
+
+   	 let config = await StaffConfig.findOne({
+    	    guildId: interaction.guild.id
+   	 });
+
+	    if (!config)
+   	     config = await StaffConfig.create({
+    	        guildId: interaction.guild.id
+   	     });
+
+	    config.logChannelId = channel.id;
+
+  	  await config.save();
+
+ 	   return interaction.reply(
+        	`✅ Staff log set to ${channel}`
+    	);
+
+	}
+
+	if (commandName === "staffsecurity") {
+
+  	  if (!(await isBotAdmin(interaction))) {
+    	    return interaction.reply({
+        	    content: "❌ No permission",
+            	ephemeral: true
+       	 });
+    	}
+
+    	const member =
+        	interaction.options.getUser("member");
+
+    	const level =
+   	     interaction.options.getInteger("level");
+
+	    let security =
+  	      await StaffSecurity.findOne({
+
+       	     guildId: interaction.guild.id,
+      	      userId: member.id
+
+      	  });
+
+  	  if (!security)
+    	    security = await StaffSecurity.create({
+
+        	    guildId: interaction.guild.id,
+    	        userId: member.id
+
+     	   });
+
+	    security.level = level;
+
+ 	   await security.save();
+
+ 	   return interaction.reply(
+  	      `✅ ${member.tag} security level set to ${level}`
+	    );
+
+	}
+
+	if (commandName === "removewarnstaff") {
+
+ 	   if (!(await isBotAdmin(interaction))) {
+     	   return interaction.reply({
+     	       content: "❌ No permission",
+     	       ephemeral: true
+    	    });
+   	 }
+
+  	  const member =
+    	    interaction.options.getUser("member");
+
+  	  const data =
+  	      await StaffWarn.findOne({
+
+  	          guildId: interaction.guild.id,
+   	         userId: member.id
+
+    	    });
+
+ 	   if (!data || data.warns.length === 0)
+ 	       return interaction.reply(
+ 	           "❌ No warns"
+	        );
+
+  	  data.warns.pop();
+
+  	  await data.save();
+
+  	  return interaction.reply(
+ 	       "✅ Warn removed"
+ 	   );
+
+	}
+
+	if (commandName === "staffinfo") {
+
+ 	   const member =
+ 	       interaction.options.getUser("member");
+	
+  	  const data =
+  	      await StaffWarn.findOne({
+
+       	     guildId: interaction.guild.id,
+      	      userId: member.id
+
+    	    });
+
+   	 if (!data || data.warns.length === 0)
+      	  return interaction.reply(
+	            "✅ No warns"
+    	    );
+
+   	 let txt = "";
+
+ 	   data.warns.forEach((w, i) => {
+
+        txt +=
+	`#${i + 1}
+	Reason: ${w.reason}
+	Severity: ${w.severity}
+	Task: ${w.task}
+	Expires: <t:${Math.floor(w.expireAt.getTime()/1000)}:R>
+
+	`;
+
+    	});
+
+    	return interaction.reply(txt);
+
+}
+  
   if (commandName === "syncchannel") {
 
   if (!(await isBotAdmin(interaction))) {
@@ -499,6 +1286,135 @@ if (commandName === "syncchannel") {
       ephemeral: true
     });
   }
+}
+
+if (commandName === "warnstaff") {
+
+ 	   if (!(await isBotAdmin(interaction))) {
+   	     return interaction.reply({
+     	       content: "❌ No permission",
+    	        ephemeral: true
+    	    });
+	    }
+
+	    const memberUser = interaction.options.getUser("member");
+ 	   const reason = interaction.options.getString("reason");
+ 	   const severity = interaction.options.getInteger("severity");
+ 	   const task = interaction.options.getString("task") || "None";
+
+ 	   const member = await interaction.guild.members.fetch(memberUser.id);
+
+  	  let data = await StaffWarn.findOne({
+    	    guildId: interaction.guild.id,
+    	    userId: member.id
+ 	   });
+
+ 	   if (!data) {
+ 	       data = await StaffWarn.create({
+     	       guildId: interaction.guild.id,
+      	      userId: member.id,
+     	       warns: []
+ 	       });
+ 	   }
+
+  	  const warnCount = data.warns.length + 1;
+
+	    const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+
+	    data.warns.push({
+  	      reason,
+    	    severity,
+ 	       task,
+        	moderatorId: interaction.user.id,
+        	expireAt
+   	 });
+
+	    await data.save();
+
+ 	   // SECURITY LEVEL
+  	  const security = await getSecurityLevel(interaction.guild.id, member.id);
+
+ 	   const config = await StaffConfig.findOne({
+	        guildId: interaction.guild.id
+ 	   });
+
+ 	   let actionMsg = "";
+
+ 	   // ================= RULE SYSTEM =================
+	    if (warnCount === 1) {
+	        actionMsg = "Verbal warning";
+	    }
+	
+	    if (warnCount === 2) {
+ 	       actionMsg = "Verbal + possible freeze";
+ 	       if (security >= 5) {
+   	         await applyStaffAction(member, "freeze", 0, "Security freeze");
+ 		       }
+	    }
+
+ 	   if (warnCount === 3) {
+	        actionMsg = "Suspend 12h + freeze 12h";
+    	    await applyStaffAction(member, "suspend", 12 * 60 * 60 * 1000, reason);
+        	await applyStaffAction(member, "freeze", 12 * 60 * 60 * 1000, reason);
+	    }
+
+    	if (warnCount === 4) {
+        	actionMsg = "Suspend 24h + freeze 36h";
+        	await applyStaffAction(member, "suspend", 24 * 60 * 60 * 1000, reason);
+        	await applyStaffAction(member, "freeze", 36 * 60 * 60 * 1000, reason);
+   	 }
+
+    	if (warnCount === 5) {
+        	actionMsg = "Demote + suspend 12h + freeze 48h";
+        	await applyStaffAction(member, "demote", 0, reason);
+        	await applyStaffAction(member, "suspend", 12 * 60 * 60 * 1000, reason);
+        	await applyStaffAction(member, "freeze", 48 * 60 * 60 * 1000, reason);
+    	}
+
+    	if (warnCount >= 6) {
+    	    actionMsg = "REMOVE STAFF";
+    	    await applyStaffAction(member, "remove", 0, reason);
+    	}
+
+ // ================= DM =================
+	    try {
+	        await member.send(
+	`⚠️ STAFF WARNING
+
+	Reason: ${reason}
+	Severity: ${severity}
+	Action: ${actionMsg}
+
+	Task to remove warn: ${task}
+
+	You have ${warnCount} warnings.`
+    	    );
+    	} catch {}
+
+// ================= LOG =================
+	    const cfg = await StaffConfig.findOne({
+	        guildId: interaction.guild.id
+	    });
+
+ 	   const logCh = interaction.guild.channels.cache.get(cfg?.logChannelId);
+
+	    if (logCh) {
+	        logCh.send(
+	`🚨 STAFF WARN
+
+	User: ${member.user.tag}
+	Reason: ${reason}
+	Severity: ${severity}
+	Warn #: ${warnCount}
+	Action: ${actionMsg}
+	Moderator: ${interaction.user.tag}`
+ 	       );
+ 	   }
+
+ 	   return interaction.reply(
+  	      `✅ Warned ${member.user.tag} | ${actionMsg}`
+ 	   );
+
 }
 
 // ===================== SYNCROLE =====================
@@ -928,8 +1844,175 @@ User: ${interaction.user.tag}`
 			});
 
 		}
+	}
+
+	if (commandName === "setstafflog") {
+
+    	if (!(await isBotAdmin(interaction))) {
+        	return interaction.reply({
+            	content: "❌ No permission",
+            	ephemeral: true
+        	});
+    	}
+
+    	const channel = interaction.options.getChannel("channel");
+
+    	let config = await StaffConfig.findOne({
+        	guildId: interaction.guild.id
+    	});
+
+	    if (!config) {
+
+    	    config = await StaffConfig.create({
+        	    guildId: interaction.guild.id
+       	 });
+
+    	}
+
+    	config.logChannelId = channel.id;
+
+    	await config.save();
+
+    	return interaction.reply({
+        	content: `✅ Staff log channel set to ${channel}`,
+        	ephemeral: false
+    	});
 
 	}
+
+	if (commandName === "staffsecurity") {
+
+	    if (!(await isBotAdmin(interaction))) {
+    	    return interaction.reply({
+        	    content: "❌ No permission",
+        	    ephemeral: true
+       	 });
+   	 }
+
+   	 const memberUser =
+    	    interaction.options.getUser("member");
+
+   	 const level =
+   	     interaction.options.getInteger("level");
+
+   	 let security = await StaffSecurity.findOne({
+
+    	    guildId: interaction.guild.id,
+    	    userId: memberUser.id
+
+ 	   });
+
+ 	   if (!security) {
+
+    	    security = await StaffSecurity.create({
+
+    	        guildId: interaction.guild.id,
+    	        userId: memberUser.id
+
+    	    });
+
+   	 }
+
+    	security.level = level;
+
+	    await security.save();
+
+    	await sendStaffLog(
+    	    interaction.guild,
+
+	`🛡 STAFF SECURITY
+
+	Member: ${memberUser.tag}
+
+	Level: ${level}
+
+	Set by: ${interaction.user.tag}`
+    	);
+
+  	  return interaction.reply({
+
+    	    content:
+  	      `✅ Security level set to ${level}`
+
+  	  });
+
+	}
+
+
+	if (commandName === "warnstaff") {
+
+   	 if (!(await isBotAdmin(interaction))) {
+  	      return interaction.reply({
+        	    content: "❌ No permission",
+        	    ephemeral: true
+     	   });
+  	  }
+
+  	  const memberUser =
+	        interaction.options.getUser("member");
+
+	    const reason =
+  	      interaction.options.getString("reason");
+
+		    const severity =
+    		    interaction.options.getInteger("severity");
+	
+	    const task =
+	        interaction.options.getString("task") || "None";
+
+	    const member =
+    	    await interaction.guild.members.fetch(
+        	    memberUser.id
+        	);
+
+    	let data = await StaffWarn.findOne({
+
+        	guildId: interaction.guild.id,
+       	 userId: member.id
+
+    	});
+
+ 	   if (!data) {
+
+ 	       data = await StaffWarn.create({
+
+     	       guildId: interaction.guild.id,
+    	        userId: member.id,
+    	        warns: []
+
+    	    });
+
+	    }
+
+	    data.warns.push({
+
+     	   reason,
+    	    severity,
+ 	       task,
+
+    	    moderatorId:
+    	    interaction.user.id,
+
+    	    expireAt:
+    	    new Date(
+    	        Date.now() +
+    	        14 * 24 * 60 * 60 * 1000
+    	    )
+
+ 	   });
+
+ 	   await data.save();
+
+ 	   const warnCount =
+  	      data.warns.length;
+
+  	  const security =
+    	    await getSecurityLevel(
+
+    	        interaction.guild.id,
+   	         member.id
+
+     	   );
 });
 
 // =====================
