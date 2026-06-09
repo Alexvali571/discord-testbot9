@@ -1613,7 +1613,7 @@ if (commandName === "denyrole") {
     const category = interaction.options.getChannel("category");
     const mode = interaction.options.getString("mode");
 
-    const member = await interaction.guild.members.fetch(memberUser.id);
+    const security = await getSecurityLevel(interaction.guild.id, member.id);
 
 const applyPerms = async (ch) => {
 
