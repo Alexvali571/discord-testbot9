@@ -298,45 +298,6 @@ Duration: ${durationMs / 1000}s`
     }, durationMs);
 }
 
-const staffWarnSchema = new mongoose.Schema({
-
-    guildId: String,
-
-    userId: String,
-
-    warns: [
-
-        {
-
-            reason: String,
-
-            severity: Number,
-
-            task: String,
-
-            moderatorId: String,
-
-            createdAt: {
-
-                type: Date,
-                default: Date.now
-
-            },
-
-            expireAt: Date
-
-        }
-
-    ]
-
-});
-
-const StaffWarn =
-mongoose.model(
-    "StaffWarn",
-    staffWarnSchema
-);
-
 // ===================== CLIENT =====================
 const client = new Client({
   intents: [
