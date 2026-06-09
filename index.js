@@ -170,9 +170,7 @@ const staffProbationSchema = new mongoose.Schema({
 const StaffProbation = mongoose.model("StaffProbation", staffProbationSchema);
 
 // ===================== FREEZE SYSTEM =====================
-const freezeCache = new Map();
-
-async function freezeMember(member, durationMs) {
+async function freezeMember(member, durationMs, reason) {
 
     const config = await StaffConfig.findOne({
         guildId: member.guild.id
@@ -180,63 +178,32 @@ async function freezeMember(member, durationMs) {
 
     if (!config) return;
 
-    const staffRoleId = config.staffRoleId;
-    const freezeRoleId = config.freezeRoleId;
-
-    const guild = member.guild;
-
-    // salvează rolurile
     const savedRoles = member.roles.cache
-        .filter(r => r.id !== guild.id)
+        .filter(r => r.id !== member.guild.id)
         .map(r => r.id);
 
-    freezeCache.set(`${guild.id}-${member.id}`, savedRoles);
-
-    // scoate staff + pune freeze
-    if (staffRoleId)
-        await member.roles.remove(staffRoleId).catch(() => {});
-
-    if (freezeRoleId)
-        await member.roles.add(freezeRoleId).catch(() => {});
-
-    // permisiuni pe canale
-    guild.channels.cache.forEach(channel => {
-
-        const perms = channel.permissionsFor(staffRoleId);
-
-        channel.permissionOverwrites.edit(member.id, {
-            ViewChannel: perms?.has("ViewChannel") || false,
-            Connect: perms?.has("Connect") || false
-        }).catch(() => {});
-
+    await StaffFreeze.findOneAndDelete({
+        guildId: member.guild.id,
+        userId: member.id
     });
 
-    // 🔓 UNFREEZE după timp
-    setTimeout(async () => {
+    await StaffFreeze.create({
+        guildId: member.guild.id,
+        userId: member.id,
+        reason,
+        expiresAt: new Date(Date.now() + durationMs),
+        permissions: savedRoles
+    });
 
-        const fresh = await guild.members.fetch(member.id).catch(() => null);
-        if (!fresh) return;
+    if (config.staffRoleId)
+        await member.roles.remove(config.staffRoleId).catch(() => {});
 
-        const saved = freezeCache.get(`${guild.id}-${member.id}`);
+    if (config.freezeRoleId)
+        await member.roles.add(config.freezeRoleId).catch(() => {});
 
-        if (freezeRoleId)
-            await fresh.roles.remove(freezeRoleId).catch(() => {});
-
-        if (saved)
-            await fresh.roles.set(saved).catch(() => {});
-
-        guild.channels.cache.forEach(channel => {
-            channel.permissionOverwrites.delete(member.id).catch(() => {});
-        });
-
-        freezeCache.delete(`${guild.id}-${member.id}`);
-
-    }, durationMs);
 }
 
 // ===================== SUSPEND SYSTEM =====================
-const suspendCache = new Map();
-
 async function suspendMember(member, durationMs, reason) {
 
     const config = await StaffConfig.findOne({
@@ -245,57 +212,28 @@ async function suspendMember(member, durationMs, reason) {
 
     if (!config) return;
 
-    const staffRoleId = config.staffRoleId;
-    const suspendRoleId = config.suspendRoleId;
-
-    const guild = member.guild;
-
-    // 🔥 SALVEAZĂ TOATE ROLURILE REALE
     const savedRoles = member.roles.cache
-        .filter(r => r.id !== guild.id)
+        .filter(r => r.id !== member.guild.id)
         .map(r => r.id);
 
-    suspendCache.set(`${guild.id}-${member.id}`, savedRoles);
+    await StaffSuspend.findOneAndDelete({
+        guildId: member.guild.id,
+        userId: member.id
+    });
 
-    // ❌ scoate staff role
-    if (staffRoleId)
-        await member.roles.remove(staffRoleId).catch(() => {});
+    await StaffSuspend.create({
+        guildId: member.guild.id,
+        userId: member.id,
+        reason,
+        savedRoles,
+        expiresAt: new Date(Date.now() + durationMs)
+    });
 
-    // ⛔ pune suspend role
-    if (suspendRoleId)
-        await member.roles.add(suspendRoleId).catch(() => {});
+    if (config.staffRoleId)
+        await member.roles.remove(config.staffRoleId).catch(() => {});
 
-    // 🧾 LOG
-    const logCh = guild.channels.cache.get(config.logChannelId);
-    if (logCh) {
-        logCh.send(
-`⛔ SUSPEND
-
-User: ${member.user.tag}
-Reason: ${reason}
-Duration: ${durationMs / 1000}s`
-        ).catch(() => {});
-    }
-
-    // ⏱ RESTORE
-    setTimeout(async () => {
-
-        const fresh = await guild.members.fetch(member.id).catch(() => null);
-        if (!fresh) return;
-
-        const saved = suspendCache.get(`${guild.id}-${member.id}`);
-
-        // scoate suspend role
-        if (suspendRoleId)
-            await fresh.roles.remove(suspendRoleId).catch(() => {});
-
-        // 🔥 RESTAUREAZĂ TOATE ROLURILE
-        if (saved)
-            await fresh.roles.set(saved).catch(() => {});
-
-        suspendCache.delete(`${guild.id}-${member.id}`);
-
-    }, durationMs);
+    if (config.suspendRoleId)
+        await member.roles.add(config.suspendRoleId).catch(() => {});
 }
 
 // ===================== CLIENT =====================
@@ -680,6 +618,15 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
+.setName("staffhistory")
+.setDescription("Show full warn history")
+.addUserOption(o =>
+    o.setName("member")
+    .setDescription("Member")
+    .setRequired(true)
+),
+
+new SlashCommandBuilder()
 	.setName("removewarnstaff")
 	.setDescription("Remove one warn")
 	.addUserOption(o =>
@@ -856,60 +803,6 @@ new SlashCommandBuilder()
 	.addChannelOption(o =>
     	o.setName("channel")
     	.setDescription("Log channel")
-    	.setRequired(true)
-),
-
-new SlashCommandBuilder()
-
-	.setName("staffsecurity")
-
-	.setDescription("Set staff security level")
-
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
-    	.setRequired(true)
-	)
-	
-	.addIntegerOption(o =>
-    	o.setName("level")
-    	.setDescription("1-7")
-    	.setRequired(true)
-),
-
-new SlashCommandBuilder()
-	.setName("warnstaff")
-	.setDescription("Warn a staff member")
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
-    	.setRequired(true)
-	)
-
-	.addStringOption(o =>
-    	o.setName("reason")
-    	.setDescription("Reason")
-    	.setRequired(true)
-	)
-
-	.addIntegerOption(o =>
-	    o.setName("severity")
-    	.setDescription("1-10")
-    	.setRequired(true)
-	)
-
-	.addStringOption(o =>
-    	o.setName("task")
-    	.setDescription("Task to remove warn")
-    	.setRequired(false)
-),
-
-new SlashCommandBuilder()
-	.setName("removewarnstaff")
-	.setDescription("Remove one warn")
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
     	.setRequired(true)
 ),
 
