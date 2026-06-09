@@ -311,6 +311,20 @@ const commands = [
       o.setName("target")
         .setDescription("Target channel/category")
         .setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("syncrolerole")
+	.setDescription("Sync all permissions from a role to another role")
+	.addRoleOption(o =>
+	  o.setName("rolesource")
+    	.setDescription("Source role")
+    	.setRequired(true)
+	)
+	.addRoleOption(o =>
+	  o.setName("roletarget")
+	    .setDescription("Target role")
+	    .setRequired(true)
 )
 
 ].map(c => c.toJSON());
@@ -838,6 +852,78 @@ const applyPerms = async (ch) => {
 
 			return interaction.reply({
 				content: "❌ Error while copying permissions",
+				ephemeral: true
+			});
+
+		}
+
+	}
+
+	// ===================== SYNC ROLE ROLE =====================
+	if (commandName === "syncrolerole") {
+
+		if (!(await isBotAdmin(interaction))) {
+			return interaction.reply({
+				content: "❌ No permission",
+				ephemeral: true
+			});
+		}
+
+		const roleSource = interaction.options.getRole("rolesource");
+		const roleTarget = interaction.options.getRole("roletarget");
+
+		let count = 0;
+
+		try {
+
+			for (const ch of interaction.guild.channels.cache.values()) {
+
+				const perms = ch.permissionOverwrites.cache.get(roleSource.id);
+
+				if (!perms) continue;
+
+				const allowData = {};
+				const denyData = {};
+
+				for (const perm of Object.keys(PermissionsBitField.Flags)) {
+
+					if (perms.allow.has(perm)) {
+						allowData[perm] = true;
+					}
+
+					if (perms.deny.has(perm)) {
+						denyData[perm] = false;
+					}
+
+				}
+
+				await ch.permissionOverwrites.edit(roleTarget, {
+					...allowData,
+					...denyData
+				});
+
+				count++;
+
+			}
+
+			await sendLog(
+				interaction.guild,
+				`🔄 SYNC ROLE ROLE
+Source: ${roleSource.name}
+Target: ${roleTarget.name}
+User: ${interaction.user.tag}`
+			);
+
+			return interaction.reply(
+				`✅ Synchronized ${count} channels/categories from ${roleSource.name} to ${roleTarget.name}`
+			);
+
+		} catch (err) {
+
+			console.error(err);
+
+			return interaction.reply({
+				content: "❌ Error while syncing roles",
 				ephemeral: true
 			});
 
