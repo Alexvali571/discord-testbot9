@@ -2053,7 +2053,6 @@ User: ${interaction.user.tag}`
    	         member.id
 
      	   );
-});
 
 // =====================
 console.log("Starting bot...");
