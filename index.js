@@ -409,60 +409,14 @@ async function isBotAdmin(interaction) {
   return interaction.member.roles.cache.has(config.botAdminRole);
 }
 
-async function getWarnCount(guildId, userId) {
-
-    const data = await StaffWarn.findOne({
-        guildId,
-        userId
-    });
-
-    if (!data) return 0;
-
-    return data.warns.length;
-
-}
-
-async function applyStaffAction(member, action, durationMs, reason, config) {
-    try {
-
-        const staffRoleId = config?.staffRoleId;
-        const memberRoleId = config?.memberRoleId;
-
-        // ================= FREEZE =================
-        if (action === "freeze") {
-  		  await freezeMember(member, durationMs);
-		}
-
-        // ================= SUSPEND (NOU LOGIC) =================
-        if (action === "suspend") {
-   			await suspendMember(member, durationMs, reason);
-		}
-
-        // ================= REMOVE =================
-        if (action === "remove") {
-            await member.roles.cache.forEach(r => {
-                if (r.name !== "@everyone") member.roles.remove(r);
-            });
-        }
-
-        // ================= DEMOTE =================
-        if (action === "demote") {
-            await member.roles.cache.forEach(r => {
-                if (r.name !== "@everyone") member.roles.remove(r);
-            });
-        }
-
-    } catch (e) {
-        console.log("Action error:", e);
-    }
-}
-
-// ===================== STAFF SECURITY =====================
 async function getSecurityLevel(guildId, userId) {
 
-    const security = await StaffSecurity.findOne({
+    const security =
+    await StaffSecurity.findOne({
+
         guildId,
         userId
+
     });
 
     return security?.level || 1;
@@ -957,79 +911,84 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName } = interaction;
 
-  if (commandName === "setstafflog") {
+if (commandName === "setstafflog") {
 
-  	  if (!interaction.member.permissions.has(
-    	    PermissionsBitField.Flags.Administrator
-   	 )) {
-   	     return interaction.reply({
-    	        content: "❌ Only admin",
-        	    ephemeral: true
-       	 });
-   	 }
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
+    }
 
-    	const channel =
-        	interaction.options.getChannel("channel");
+    const channel = interaction.options.getChannel("channel");
 
-   	 let config = await StaffConfig.findOne({
-    	    guildId: interaction.guild.id
-   	 });
+    let config = await StaffConfig.findOne({
+        guildId: interaction.guild.id
+    });
 
-	    if (!config)
-   	     config = await StaffConfig.create({
-    	        guildId: interaction.guild.id
-   	     });
+    if (!config) {
 
-	    config.logChannelId = channel.id;
+        config = await StaffConfig.create({
+            guildId: interaction.guild.id
+		});
+		
+if (commandName === "staffsecurity") {
 
-  	  await config.save();
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
+    }
 
- 	   return interaction.reply(
-        	`✅ Staff log set to ${channel}`
-    	);
+    const memberUser =
+        interaction.options.getUser("member");
 
-	}
+    const level =
+        interaction.options.getInteger("level");
 
-	if (commandName === "staffsecurity") {
+    let security = await StaffSecurity.findOne({
 
-  	  if (!(await isBotAdmin(interaction))) {
-    	    return interaction.reply({
-        	    content: "❌ No permission",
-            	ephemeral: true
-       	 });
-    	}
+        guildId: interaction.guild.id,
+        userId: memberUser.id
 
-    	const member =
-        	interaction.options.getUser("member");
+    });
 
-    	const level =
-   	     interaction.options.getInteger("level");
+    if (!security) {
 
-	    let security =
-  	      await StaffSecurity.findOne({
+        security = await StaffSecurity.create({
 
-       	     guildId: interaction.guild.id,
-      	      userId: member.id
+            guildId: interaction.guild.id,
+            userId: memberUser.id
 
-      	  });
+        });
 
-  	  if (!security)
-    	    security = await StaffSecurity.create({
+    }
 
-        	    guildId: interaction.guild.id,
-    	        userId: member.id
+    security.level = level;
 
-     	   });
+    await security.save();
 
-	    security.level = level;
+    await sendStaffLog(
+        interaction.guild,
 
- 	   await security.save();
+`🛡 STAFF SECURITY
 
- 	   return interaction.reply(
-  	      `✅ ${member.tag} security level set to ${level}`
-	    );
+Member: ${memberUser.tag}
 
-	}
+Level: ${level}
+
+Set by: ${interaction.user.tag}`
+    );
+
+    return interaction.reply({
+
+        content:
+        `✅ Security level set to ${level}`
+
+    });
+
+}
 
 	if (commandName === "removewarnstaff") {
 
@@ -1339,52 +1298,215 @@ await applyStaffAction(
 );
         	await applyStaffAction(member, "freeze", 48 * 60 * 60 * 1000, reason);
     	}
+if (commandName === "warnstaff") {
 
-    	if (warnCount >= 6) {
-    	    actionMsg = "REMOVE STAFF";
-    	    await applyStaffAction(member, "remove", 0, reason);
-    	}
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
+    }
 
- // ================= DM =================
-	    try {
-	        await member.send(
-	`⚠️ STAFF WARNING
+    const memberUser =
+        interaction.options.getUser("member");
 
-	Reason: ${reason}
-	Severity: ${severity}
-	Action: ${actionMsg}
+    const reason =
+        interaction.options.getString("reason");
 
-	Task to remove warn: ${task}
+    const severity =
+        interaction.options.getInteger("severity");
 
-	You have ${warnCount} warnings.`
-    	    );
-    	} catch {}
+    const task =
+        interaction.options.getString("task") || "None";
 
-// ================= LOG =================
-	    const cfg = await StaffConfig.findOne({
-	        guildId: interaction.guild.id
-	    });
+    const member =
+        await interaction.guild.members.fetch(
+            memberUser.id
+        );
 
- 	   const logCh = interaction.guild.channels.cache.get(cfg?.logChannelId);
+    let data = await StaffWarn.findOne({
 
-	    if (logCh) {
-	        logCh.send(
-	`🚨 STAFF WARN
+        guildId: interaction.guild.id,
+        userId: member.id
 
-	User: ${member.user.tag}
-	Reason: ${reason}
-	Severity: ${severity}
-	Warn #: ${warnCount}
-	Action: ${actionMsg}
-	Moderator: ${interaction.user.tag}`
- 	       );
- 	   }
+    });
 
- 	   return interaction.reply(
-  	      `✅ Warned ${member.user.tag} | ${actionMsg}`
- 	   );
+    if (!data) {
+
+        data = await StaffWarn.create({
+
+            guildId: interaction.guild.id,
+            userId: member.id,
+            warns: []
+
+        });
+
+    }
+
+    data.warns.push({
+
+        reason,
+        severity,
+        task,
+
+        moderatorId:
+        interaction.user.id,
+
+        expireAt:
+        new Date(
+            Date.now() +
+            14 * 24 * 60 * 60 * 1000
+        )
+
+    });
+
+    await data.save();
+
+    const warnCount =
+        data.warns.length;
+
+    const security =
+        await getSecurityLevel(
+
+            interaction.guild.id,
+            member.id
+
+        );
+	const config = await StaffConfig.findOne({
+    guildId: interaction.guild.id
+});
+
+let actionMsg = "";
+
+let suspendHours = 0;
+let freezeHours = 0;
+
+// ===== SECURITY =====
+
+if (security === 2) {
+
+    freezeHours += 6;
 
 }
+
+if (security === 3) {
+	
+    freezeHours += 16;
+
+}
+
+if (security === 4) {
+
+    freezeHours += 48;
+
+}
+
+if (security === 5) {
+
+    suspendHours += 24;
+    freezeHours += 12;
+
+}
+
+if (security === 6) {
+
+    suspendHours += 48;
+    freezeHours += 24;
+
+}
+	
+if (security === 7) {
+
+    suspendHours += 72;
+    freezeHours += 36;
+
+}
+
+// ===== WARN 1 =====
+
+if (warnCount === 1) {
+
+    actionMsg = "Verbal warning";
+
+}
+
+// ===== WARN 2 =====
+
+if (warnCount === 2) {
+
+    actionMsg = "Verbal warning + security punishments";
+
+}
+
+// ===== WARN 3 =====
+
+if (warnCount === 3) {
+
+    suspendHours += 12;
+    freezeHours += 12;
+
+    actionMsg =
+        `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+
+}
+
+// ===== WARN 4 =====
+
+if (warnCount === 4) {
+
+    suspendHours += 24;
+    freezeHours += 36;
+
+    actionMsg =
+        `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+
+}
+
+// ===== WARN 5 =====
+
+if (warnCount === 5) {
+
+    suspendHours += 12;
+    freezeHours += 48;
+
+    actionMsg =
+        `Demote + Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+	
+	try {
+
+        await member.send(
+            "⚠️ You have 4 warns. The next warn may result in permanent staff removal."
+        );
+
+    } catch {}
+
+}
+
+    if (config?.demoteRoleId) {
+
+        await member.roles.add(
+            config.demoteRoleId
+        ).catch(() => {});
+
+    }
+
+}
+
+// ===== WARN 6 =====
+
+if (warnCount >= 6) {
+
+    actionMsg = "REMOVE STAFF";
+
+    if (config?.staffRoleId) {
+
+        await member.roles.remove(
+            config.staffRoleId
+        ).catch(() => {});
+
+    }
+
+	}
 
 // ===================== SYNCROLE =====================
 if (commandName === "syncrole") {
