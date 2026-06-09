@@ -87,87 +87,163 @@ const staffConfigSchema = new mongoose.Schema({
   memberRoleId: String
 });
 
-const StaffConfig = mongoose.model("StaffConfig", staffConfigSchema);
-
-// STAFF SECURITY
 const staffSecuritySchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  level: { type: Number, default: 1 }
+
+    guildId: String,
+    userId: String,
+
+    level: {
+        type: Number,
+        default: 1
+    }
+
 });
 
-const StaffSecurity = mongoose.model("StaffSecurity", staffSecuritySchema);
-
+const StaffSecurity = mongoose.model(
+    "StaffSecurity",
+    staffSecuritySchema
+);
 // STAFF WARN
 const staffWarnSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  warns: [
-    {
-      reason: String,
-      severity: Number,
-      task: String,
-      moderatorId: String,
-      date: { type: Date, default: Date.now },
-      expireAt: Date
-    }
-  ]
+
+    guildId: String,
+    userId: String,
+
+    warns: [
+        {
+
+            reason: String,
+            severity: Number,
+            task: String,
+
+            moderatorId: String,
+
+            date: {
+                type: Date,
+                default: Date.now
+            },
+
+            expireAt: Date
+
+        }
+    ]
+
 });
 
-const StaffWarn = mongoose.model("StaffWarn", staffWarnSchema);
+const StaffWarn = mongoose.model(
+    "StaffWarn",
+    staffWarnSchema
+);
 
 // FREEZE
 const staffFreezeSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  reason: String,
-  expiresAt: Date,
-  permissions: Object
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    expiresAt: Date,
+
+    permissions: Object
+
 });
 
-const StaffFreeze = mongoose.model("StaffFreeze", staffFreezeSchema);
+const StaffFreeze = mongoose.model(
+    "StaffFreeze",
+    staffFreezeSchema
+);
 
 // SUSPEND
 const staffSuspendSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  reason: String,
-  savedRoles: [String],
-  expiresAt: Date
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    savedRoles: [String],
+
+    expiresAt: Date
+
 });
 
-const StaffSuspend = mongoose.model("StaffSuspend", staffSuspendSchema);
+const StaffSuspend = mongoose.model(
+    "StaffSuspend",
+    staffSuspendSchema
+);
 
 // DEMOTE
 const staffDemoteSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  oldRoles: [String],
-  reason: String,
-  date: { type: Date, default: Date.now }
+
+    guildId: String,
+    userId: String,
+
+    oldRoles: [String],
+
+    reason: String,
+
+    date: {
+        type: Date,
+        default: Date.now
+    }
+
 });
 
-const StaffDemote = mongoose.model("StaffDemote", staffDemoteSchema);
+const StaffDemote = mongoose.model(
+    "StaffDemote",
+    staffDemoteSchema
+);
 
 // BLACKLIST
 const staffBlacklistSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  reason: String,
-  moderatorId: String,
-  date: { type: Date, default: Date.now }
+
+    guildId: String,
+    userId: String,
+
+    reason: String,
+
+    moderatorId: String,
+
+    date: {
+        type: Date,
+        default: Date.now
+    }
+
 });
 
-const StaffBlacklist = mongoose.model("StaffBlacklist", staffBlacklistSchema);
+const StaffBlacklist = mongoose.model(
+    "StaffBlacklist",
+    staffBlacklistSchema
+);
 
 // PROBATION
 const staffProbationSchema = new mongoose.Schema({
-  guildId: String,
-  userId: String,
-  expiresAt: Date
+
+    guildId: String,
+    userId: String,
+
+    expiresAt: Date
+
 });
 
-const StaffProbation = mongoose.model("StaffProbation", staffProbationSchema);
+const StaffProbation = mongoose.model(
+    "StaffProbation",
+    staffProbationSchema
+);
+
+const staffConfigSchema = new mongoose.Schema({
+
+    guildId: String,
+
+    logChannelId: String
+
+});
+
+const StaffConfig = mongoose.model(
+    "StaffConfig",
+    staffConfigSchema
+);
 
 // ===================== FREEZE SYSTEM =====================
 async function freezeMember(member, durationMs, reason) {
