@@ -298,12 +298,6 @@ Duration: ${durationMs / 1000}s`
     }, durationMs);
 }
 
-const StaffSecurity = 
-mongoose.model(
-    "StaffSecurity",
-    staffSecuritySchema
-);
-
 const staffWarnSchema = new mongoose.Schema({
 
     guildId: String,
