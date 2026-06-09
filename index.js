@@ -844,7 +844,6 @@ new SlashCommandBuilder()
 new SlashCommandBuilder()
 	.setName("topstaffwarns")
 	.setDescription("Top staff warns")
-),
 
 new SlashCommandBuilder()
 	.setName("setstafflog")
@@ -856,11 +855,8 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-
 	.setName("setstafflog")
-	
 	.setDescription("Set staff log channel")
-
 	.addChannelOption(o =>
     	o.setName("channel")
     	.setDescription("Log channel")
@@ -886,11 +882,8 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-
 	.setName("warnstaff")
-
 	.setDescription("Warn a staff member")
-
 	.addUserOption(o =>
     	o.setName("member")
     	.setDescription("Member")
@@ -916,11 +909,8 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-
 	.setName("removewarnstaff")
-	
 	.setDescription("Remove one warn")
-	
 	.addUserOption(o =>
     	o.setName("member")
     	.setDescription("Member")
@@ -928,11 +918,8 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-
 	.setName("staffinfo")
-
 	.setDescription("View staff warnings")
-
 	.addUserOption(o =>
 	    o.setName("member")
 	    .setDescription("Member")
