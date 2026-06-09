@@ -229,12 +229,6 @@ const StaffConfig = mongoose.model(
     staffConfigSchema
 );
 
-const StaffConfig =
-mongoose.model(
-    "StaffConfig",
-    staffConfigSchema
-);
-
 // ===================== FREEZE SYSTEM =====================
 const freezeCache = new Map();
 
