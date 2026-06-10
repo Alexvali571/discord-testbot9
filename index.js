@@ -651,25 +651,19 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         }
 
         if (warnCount === 2) {
-            actionMsg = "Verbal warning + security punishments";
+            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
         }
 
         if (warnCount === 3) {
-            suspendHours += 12;
-            freezeHours  += 12;
-            actionMsg = `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+            actionMsg = `Suspend ${suspendHours+12}h + Freeze ${freezeHours+12}h`;
         }
 
         if (warnCount === 4) {
-            suspendHours += 24;
-            freezeHours  += 36;
-            actionMsg = `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+            actionMsg = `Suspend ${suspendHours+24}h + Freeze ${freezeHours+36}h`;
         }
 
         if (warnCount === 5) {
-            suspendHours += 12;
-            freezeHours  += 48;
-            actionMsg = `Demote + Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+            actionMsg = `Demote + Suspend ${suspendHours+36}h + Freeze ${freezeHours+48}h`;
 
             if (config?.demoteRoleId)
                 await member.roles.add(config.demoteRoleId).catch(() => {});
