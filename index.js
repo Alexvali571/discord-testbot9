@@ -637,32 +637,54 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         let freezeHours  = 0;
         let actionMsg    = "";
 
-        // Security level bonus
-        if (security === 2) freezeHours  = 6;
-        if (security === 3) freezeHours  = 16;
-        if (security === 4) freezeHours  = 48;
-        if (security === 5) { suspendHours = 24; freezeHours = 12; }
-        if (security === 6) { suspendHours = 48; freezeHours = 24; }
-        if (security === 7) { suspendHours = 72; freezeHours = 36; }
-
         // Warn thresholds
         if (warnCount === 1) {
+            if (security === 2) freezeHours  = 6;
+            if (security === 3) freezeHours  = 16;
+            if (security === 4) freezeHours  = 48;
+            if (security === 5) { suspendHours = 24; freezeHours = 12; }
+            if (security === 6) { suspendHours = 48; freezeHours = 24; }
+            if (security === 7) { suspendHours = 72; freezeHours = 36; }
             actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
         }
 
         if (warnCount === 2) {
+            if (security === 2) freezeHours  = 6;
+            if (security === 3) freezeHours  = 16;
+            if (security === 4) freezeHours  = 48;
+            if (security === 5) { suspendHours = 24; freezeHours = 12; }
+            if (security === 6) { suspendHours = 48; freezeHours = 24; }
+            if (security === 7) { suspendHours = 72; freezeHours = 36; }
             actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
         }
 
         if (warnCount === 3) {
+            if (security === 2) freezeHours  = 6;
+            if (security === 3) freezeHours  = 16;
+            if (security === 4) freezeHours  = 48;
+            if (security === 5) { suspendHours = 24; freezeHours = 12; }
+            if (security === 6) { suspendHours = 48; freezeHours = 24; }
+            if (security === 7) { suspendHours = 72; freezeHours = 36; }
             actionMsg = `Suspend ${suspendHours+12}h + Freeze ${freezeHours+12}h`;
         }
 
         if (warnCount === 4) {
+            if (security === 2) freezeHours  = 6;
+            if (security === 3) freezeHours  = 16;
+            if (security === 4) freezeHours  = 48;
+            if (security === 5) { suspendHours = 24; freezeHours = 12; }
+            if (security === 6) { suspendHours = 48; freezeHours = 24; }
+            if (security === 7) { suspendHours = 72; freezeHours = 36; }
             actionMsg = `Suspend ${suspendHours+24}h + Freeze ${freezeHours+36}h`;
         }
 
         if (warnCount === 5) {
+            if (security === 2) freezeHours  = 6;
+            if (security === 3) freezeHours  = 16;
+            if (security === 4) freezeHours  = 48;
+            if (security === 5) { suspendHours = 24; freezeHours = 12; }
+            if (security === 6) { suspendHours = 48; freezeHours = 24; }
+            if (security === 7) { suspendHours = 72; freezeHours = 36; }
             actionMsg = `Demote + Suspend ${suspendHours+36}h + Freeze ${freezeHours+48}h`;
 
             if (config?.demoteRoleId)
