@@ -1148,25 +1148,16 @@ if (commandName === "syncchannel") {
             return interaction.editReply("❌ Category not found");
         }
 
-        // 🔥 LUĂM PERMISIUNILE CORECT
-        const overwrites = category.permissionOverwrites.cache.map(o => {
+        // 🔥 IMPORTANT: metoda corectă Discord
+        const overwrites = category.permissionOverwrites.cache.map(o => ({
+            id: o.id,
+            allow: o.allow,
+            deny: o.deny,
+            type: o.type
+        }));
 
-            return {
-                id: o.id,
-                allow: o.allow.bitfield,
-                deny: o.deny.bitfield,
-                type: o.type
-            };
-
-        });
-
-        // 🔥 RESET + APPLY
+        // 🔥 SAFE RESET + APPLY
         await channel.permissionOverwrites.set(overwrites);
-
-        await sendLog(
-            interaction.guild,
-            `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
-        );
 
         return interaction.editReply(
             `✅ Synced ${channel.name} with ${category.name}`
