@@ -232,19 +232,6 @@ const StaffProbation = mongoose.model(
     staffProbationSchema
 );
 
-const staffConfigSchema = new mongoose.Schema({
-
-    guildId: String,
-
-    logChannelId: String
-
-});
-
-const StaffConfig = mongoose.model(
-    "StaffConfig",
-    staffConfigSchema
-);
-
 // ===================== FREEZE SYSTEM =====================
 async function freezeMember(member, durationMs, reason) {
 
