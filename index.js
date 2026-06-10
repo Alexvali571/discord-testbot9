@@ -875,35 +875,55 @@ client.once("ready", async () => {
 
 	setInterval(async () => {
 
-    const all = await StaffWarn.find({});
+    const allWarns = await StaffWarn.find();
 
-	    for (const user of all) {
+    for (const data of allWarns) {
 
-   	     let changed = false;
+        const before = data.warns.length;
 
-   	     user.warns = user.warns.filter(w => {
+        data.warns = data.warns.filter(
+            w => w.expireAt > new Date()
+        );
 
-    	        if (!w.expireAt) return true;
+        if (before !== data.warns.length) {
 
-       	     if (w.expireAt > new Date()) return true;
+            await data.save();
 
-     	       changed = true;
-   	         return false;
-	
-     	   });
+            const config = await StaffConfig.findOne({
+                guildId: data.guildId
+            });
 
-     	   if (changed) {
+            const guild = client.guilds.cache.get(
+                data.guildId
+            );
 
-        	    await user.save();
+            if (!guild) continue;
 
-       	     console.log(`🧹 Expired warns cleaned for ${user.userId}`);
+            const logChannel =
+                guild.channels.cache.get(
+                    config?.logChannelId
+                );
 
- 	       }
+            if (logChannel) {
 
- 	   }
+                logChannel.send(
 
-	}, 60 * 60 * 1000); // 1h check
+`🧹 STAFF WARN EXPIRED
 
+User ID:
+${data.userId}
+
+One or more warns expired automatically.`
+
+                );
+
+            }
+
+        }
+
+    }
+
+}, 60 * 60 * 1000);
 });
 // ===================== COMMAND HANDLER =====================
 client.on("interactionCreate", async (interaction) => {
@@ -1062,56 +1082,6 @@ Set by: ${interaction.user.tag}`
 
 }
   
-  if (commandName === "syncchannel") {
-
-  if (!(await isBotAdmin(interaction))) {
-    return interaction.reply({
-      content: "❌ No permission",
-      ephemeral: true
-    });
-  }
-
-  const channel = interaction.options.getChannel("channel");
-
-  if (!channel.parentId) {
-    return interaction.reply({
-      content: "❌ Channel is not inside a category",
-      ephemeral: true
-    });
-  }
-
-  try {
-    const category = await interaction.guild.channels.fetch(channel.parentId);
-
-    if (!category) {
-      return interaction.reply({
-        content: "❌ Category not found",
-        ephemeral: true
-      });
-    }
-
-    // 🔥 aici se face sync-ul REAL
-    await channel.lockPermissions();
-
-    await sendLog(
-      interaction.guild,
-      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
-    );
-
-    return interaction.reply({
-      content: `✅ Synced ${channel.name} with ${category.name}`,
-      ephemeral: false
-    });
-
-  } catch (err) {
-    console.error(err);
-    return interaction.reply({
-      content: "❌ Failed to sync channel",
-      ephemeral: true
-    });
-  }
-}
-
   if (commandName === "synccategory") {
 
   if (!(await isBotAdmin(interaction))) {
@@ -1507,6 +1477,132 @@ if (warnCount >= 6) {
     }
 
 	}
+
+	// ===== APPLY SUSPEND =====
+
+if (suspendHours > 0) {
+
+    await member.timeout(
+
+        suspendHours * 60 * 60 * 1000,
+        reason
+
+    ).catch(() => {});
+
+}
+
+// ===== APPLY FREEZE ROLE =====
+
+if (
+
+    freezeHours > 0 &&
+    config?.freezeRoleId
+
+) {
+
+    await member.roles.add(
+        config.freezeRoleId
+    ).catch(() => {});
+
+}
+
+// ===== APPLY SUSPEND ROLE =====
+
+if (
+
+    suspendHours > 0 &&
+    config?.suspendRoleId
+
+) {
+
+    await member.roles.add(
+        config.suspendRoleId
+    ).catch(() => {});
+
+}
+
+	try {
+
+    await member.send(
+
+`⚠️ STAFF WARNING
+
+Reason:
+${reason}
+
+Severity:
+${severity}
+
+Task to remove warn:
+${task}
+
+Current warns:
+${warnCount}/6
+
+Action:
+${actionMsg}
+
+This warn expires in 14 days.`
+
+    );
+
+} catch {}
+
+	if (warnCount === 5) {
+
+    try {
+
+        await member.send(
+
+`⚠️ WARNING
+
+You have 5 staff warns.
+
+The next warn may result in permanent removal from staff depending on severity.`
+
+        );
+
+    } catch {}
+
+}
+
+	const logChannel = interaction.guild.channels.cache.get(
+    config?.logChannelId
+);
+
+if (logChannel) {
+
+    await logChannel.send(
+
+`🚨 STAFF WARN
+
+Member:
+${member.user.tag}
+
+Moderator:
+${interaction.user.tag}
+
+Reason:
+${reason}
+
+Severity:
+${severity}
+
+Task:
+${task}
+
+Warn:
+${warnCount}/6
+
+Action:
+${actionMsg}
+
+Expires:
+<t:${Math.floor(expireAt.getTime()/1000)}:R>`
+
+    );
+
+}
 
 // ===================== SYNCROLE =====================
 if (commandName === "syncrole") {
