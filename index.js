@@ -1132,7 +1132,7 @@ if (commandName === "syncchannel") {
         });
     }
 
-    await interaction.deferReply();
+    await interaction.deferReply({ flags: 64 }); // ephemeral mai bine
 
     const channel = interaction.options.getChannel("channel");
 
@@ -1140,8 +1140,20 @@ if (commandName === "syncchannel") {
         return interaction.editReply("❌ Channel not found");
     }
 
+    // ✅ Verificare tip canal
+    const validTypes = [0, 2, 5, 13, 15, 16]; // text, voice, announcement, stage, forum, media
+    if (!validTypes.includes(channel.type)) {
+        return interaction.editReply("❌ Invalid channel type");
+    }
+
     if (!channel.parentId) {
         return interaction.editReply("❌ Channel is not inside a category");
+    }
+
+    // ✅ Verificare permisiuni bot
+    const botMember = interaction.guild.members.me;
+    if (!botMember.permissions.has("ManageRoles") || !botMember.permissions.has("ManageChannels")) {
+        return interaction.editReply("❌ Bot does not have ManageRoles / ManageChannels permissions");
     }
 
     try {
@@ -1152,32 +1164,30 @@ if (commandName === "syncchannel") {
             return interaction.editReply("❌ Category not found");
         }
 
-        // 🔥 IMPORTANT: metoda corectă Discord
+        // ✅ Extragem overwrite-urile corect
         const overwrites = category.permissionOverwrites.cache.map(o => ({
             id: o.id,
-            allow: o.allow,
-            deny: o.deny,
-            type: o.type
+            allow: o.allow.toArray(),   // mai explicit
+            deny: o.deny.toArray(),     // mai explicit
+            type: o.type               // 0 = role, 1 = member
         }));
 
-        // 🔥 SAFE RESET + APPLY
         await channel.permissionOverwrites.set(overwrites);
 
         return interaction.editReply(
-            `✅ Synced ${channel.name} with ${category.name}`
+            `✅ Synced **${channel.name}** with category **${category.name}** (${overwrites.length} overwrites applied)`
         );
 
     } catch (err) {
 
-        console.error(err);
+        console.error("[syncchannel error]", err);
 
         return interaction.editReply(
-            "❌ Failed to sync channel permissions"
+            `❌ Failed to sync: \`${err.message}\``
         );
 
     }
 }
-
 if (commandName === "warnstaff") {
 
  	   if (!(await isBotAdmin(interaction))) {
