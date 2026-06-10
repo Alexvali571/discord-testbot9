@@ -1128,7 +1128,7 @@ if (commandName === "syncchannel") {
         });
     }
 
-    await interaction.deferReply(); // 🔥 FIX TIMEOUT
+    await interaction.deferReply();
 
     const channel = interaction.options.getChannel("channel");
 
@@ -1148,17 +1148,18 @@ if (commandName === "syncchannel") {
             return interaction.editReply("❌ Category not found");
         }
 
-        // 🔥 ia permisiunile EXACT corect
-        const overwrites = category.permissionOverwrites.cache.map(ow => ({
-            id: ow.id,
-            allow: ow.allow,
-            deny: ow.deny,
-            type: ow.type
+        // 🔥 IA PERMISIUNILE EXACT DIN CATEGORIE
+        const overwrites = category.permissionOverwrites.cache.map(perm => ({
+            id: perm.id,
+            allow: perm.allow,
+            deny: perm.deny,
+            type: perm.type
         }));
 
-        // 🔥 aplică safe
+        // 🔥 APPLY SAFE (RESET + APPLY EXACT)
         await channel.permissionOverwrites.set(overwrites);
 
+        // 🔥 LOG (IMPORTANT - NU UITA)
         await sendLog(
             interaction.guild,
             `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
@@ -1169,11 +1170,13 @@ if (commandName === "syncchannel") {
         );
 
     } catch (err) {
+
         console.error(err);
 
         return interaction.editReply(
             "❌ Failed to sync channel"
         );
+
     }
 }
 	
