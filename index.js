@@ -1124,7 +1124,7 @@ if (commandName === "syncchannel") {
     if (!(await isBotAdmin(interaction))) {
         return interaction.reply({
             content: "❌ No permission",
-            ephemeral: true
+            flags: 64
         });
     }
 
@@ -1148,18 +1148,21 @@ if (commandName === "syncchannel") {
             return interaction.editReply("❌ Category not found");
         }
 
-        // 🔥 IA PERMISIUNILE EXACT DIN CATEGORIE
-        const overwrites = category.permissionOverwrites.cache.map(perm => ({
-            id: perm.id,
-            allow: perm.allow,
-            deny: perm.deny,
-            type: perm.type
-        }));
+        // 🔥 LUĂM PERMISIUNILE CORECT
+        const overwrites = category.permissionOverwrites.cache.map(o => {
 
-        // 🔥 APPLY SAFE (RESET + APPLY EXACT)
+            return {
+                id: o.id,
+                allow: o.allow.bitfield,
+                deny: o.deny.bitfield,
+                type: o.type
+            };
+
+        });
+
+        // 🔥 RESET + APPLY
         await channel.permissionOverwrites.set(overwrites);
 
-        // 🔥 LOG (IMPORTANT - NU UITA)
         await sendLog(
             interaction.guild,
             `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
@@ -1174,7 +1177,7 @@ if (commandName === "syncchannel") {
         console.error(err);
 
         return interaction.editReply(
-            "❌ Failed to sync channel"
+            "❌ Failed to sync channel permissions"
         );
 
     }
