@@ -1156,16 +1156,20 @@ if (commandName === "syncchannel") {
             });
         }
 
-        // 🔥 COPIAZĂ PERMISIUNILE DE LA CATEGORIE
-        const categoryPerms = category.permissionOverwrites.cache.map(perm => ({
-            id: perm.id,
-            allow: perm.allow.bitfield,
-            deny: perm.deny.bitfield,
-            type: perm.type
-        }));
+        // 🔥 ia TOATE permisiunile corect din categorie
+        const overwrites = category.permissionOverwrites.cache.map(ow => {
 
-        // 🔥 APLICĂ PE CANAL
-        await channel.permissionOverwrites.set(categoryPerms);
+            return {
+                id: ow.id,
+                allow: ow.allow.bitfield,
+                deny: ow.deny.bitfield,
+                type: ow.type
+            };
+
+        });
+
+        // 🔥 resetează + aplică exact ca la categorie
+        await channel.permissionOverwrites.set(overwrites);
 
         await sendLog(
             interaction.guild,
@@ -1186,6 +1190,7 @@ if (commandName === "syncchannel") {
         });
     }
 }
+	
 if (commandName === "warnstaff") {
 
  	   if (!(await isBotAdmin(interaction))) {
