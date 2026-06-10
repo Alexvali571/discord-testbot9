@@ -25,20 +25,21 @@ const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 
 app.get("/health", (req, res) => {
+  if (!client.isReady()) {
+    return res.status(500).json({
+      status: "offline"
+    });
+  }
+
   res.status(200).json({
-    status: "ok",
-    discord: client?.ws?.status === 0 ? "online" : "offline",
-    uptime: process.uptime()
+    status: "online",
+    uptime: process.uptime(),
+    ping: client.ws.ping
   });
 });
 
-app.get("/health", (req, res) => {
-  if (!client.isReady()) {
-    return res.status(500).send("Discord Offline");
-  }
-
   res.status(200).send("Discord Online");
-});
+;
 
 const PORT = process.env.PORT || 3000;
 
@@ -1117,7 +1118,7 @@ Set by: ${interaction.user.tag}`
       ephemeral: true
     });
   }
-}
+  }
 
 if (commandName === "syncchannel") {
 
@@ -1173,7 +1174,7 @@ if (commandName === "syncchannel") {
 
     }
 }
-	
+
 if (commandName === "warnstaff") {
 
  	   if (!(await isBotAdmin(interaction))) {
@@ -1218,7 +1219,10 @@ if (commandName === "warnstaff") {
 	    await data.save();
 
  	   // SECURITY LEVEL
-		const security = await getSecurityLevel(interaction.guild.id, member.id);
+		const security = await getSecurityLevel(
+  interaction.guild.id,
+  memberUser.id
+);
 
  	   const config = await StaffConfig.findOne({
 	        guildId: interaction.guild.id
@@ -2149,81 +2153,7 @@ User: ${interaction.user.tag}`
   	  });
 
 	}
-
-
-	if (commandName === "warnstaff") {
-
-   	 if (!(await isBotAdmin(interaction))) {
-  	      return interaction.reply({
-        	    content: "❌ No permission",
-        	    ephemeral: true
-     	   });
-  	  }
-
-  	  const memberUser =
-	        interaction.options.getUser("member");
-
-	    const reason =
-  	      interaction.options.getString("reason");
-
-		    const severity =
-    		    interaction.options.getInteger("severity");
-	
-	    const task =
-	        interaction.options.getString("task") || "None";
-
-	    const member =
-    	    await interaction.guild.members.fetch(
-        	    memberUser.id
-        	);
-
-    	let data = await StaffWarn.findOne({
-
-        	guildId: interaction.guild.id,
-       	 userId: member.id
-
-    	});
-
- 	   if (!data) {
-
- 	       data = await StaffWarn.create({
-
-     	       guildId: interaction.guild.id,
-    	        userId: member.id,
-    	        warns: []
-
-    	    });
-
-	    }
-
-	    data.warns.push({
-
-     	   reason,
-    	    severity,
- 	       task,
-
-    	    moderatorId:
-    	    interaction.user.id,
-
-    	    expireAt:
-    	    new Date(
-    	        Date.now() +
-    	        14 * 24 * 60 * 60 * 1000
-    	    )
-
- 	   });
-
- 	   await data.save();
-
- 	   const warnCount =
-  	      data.warns.length;
-
-		const security = await StaffSecurity.findOne({
- 		 guildId: interaction.guild.id,
- 		 userId: member.id
-	});
 }
-};
 }
 });
 
