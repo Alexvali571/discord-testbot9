@@ -638,16 +638,16 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         let actionMsg    = "";
 
         // Security level bonus
-        if (security === 2) freezeHours  += 6;
-        if (security === 3) freezeHours  += 16;
-        if (security === 4) freezeHours  += 48;
-        if (security === 5) { suspendHours += 24; freezeHours += 12; }
-        if (security === 6) { suspendHours += 48; freezeHours += 24; }
-        if (security === 7) { suspendHours += 72; freezeHours += 36; }
+        if (security === 2) freezeHours  = 6;
+        if (security === 3) freezeHours  = 16;
+        if (security === 4) freezeHours  = 48;
+        if (security === 5) { suspendHours = 24; freezeHours = 12; }
+        if (security === 6) { suspendHours = 48; freezeHours = 24; }
+        if (security === 7) { suspendHours = 72; freezeHours = 36; }
 
         // Warn thresholds
         if (warnCount === 1) {
-            actionMsg = "Verbal warning";
+            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
         }
 
         if (warnCount === 2) {
