@@ -938,6 +938,7 @@ if (commandName === "setstafflog") {
         config = await StaffConfig.create({
             guildId: interaction.guild.id
 		});
+	}
 		
 if (commandName === "staffsecurity") {
 
@@ -2213,6 +2214,7 @@ User: ${interaction.user.tag}`
 	});
 }
 };
+});
 
 // =====================
 console.log("Starting bot...");
