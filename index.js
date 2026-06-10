@@ -22,23 +22,27 @@ process.on("uncaughtException", (err) => {
 // ===================== EXPRESS =====================
 const app = express();
 
-app.get("/", (req, res) => res.send("Bot is running"));
+app.get("/", (request, response) => response.send("Bot is running"));
 
-app.get("/health", (req, res) => {
+app.get("/health", (request, response) => {
   if (!client.isReady()) {
-    return res.status(500).json({
+    return response.status(500).json({
       status: "offline"
     });
   }
 
-  res.status(200).json({
+  response.status(200).json({
     status: "online",
     uptime: process.uptime(),
     ping: client.ws.ping
   });
 });
 
-  res.status(200).send("Discord Online");
+app.get("/ping", (request, response) => {
+    response.status(200).send("pong");
+});
+
+  response.status(200).send("Discord Online");
 ;
 
 const PORT = process.env.PORT || 3000;
