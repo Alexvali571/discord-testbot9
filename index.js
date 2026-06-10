@@ -1121,54 +1121,71 @@ Set by: ${interaction.user.tag}`
 
 if (commandName === "syncchannel") {
 
-  if (!(await isBotAdmin(interaction))) {
-    return interaction.reply({
-      content: "❌ No permission",
-      ephemeral: true
-    });
-  }
-
-  const channel = interaction.options.getChannel("channel");
-
-  if (!channel.parentId) {
-    return interaction.reply({
-      content: "❌ Channel is not inside a category",
-      ephemeral: true
-    });
-  }
-
-  try {
-    const category = await interaction.guild.channels.fetch(channel.parentId);
-
-    if (!category) {
-      return interaction.reply({
-        content: "❌ Category not found",
-        ephemeral: true
-      });
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
     }
 
-    // 🔥 aici se face sync-ul REAL
-    await channel.lockPermissions();
+    const channel = interaction.options.getChannel("channel");
 
-    await sendLog(
-      interaction.guild,
-      🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}
-    );
+    if (!channel) {
+        return interaction.reply({
+            content: "❌ Channel not found",
+            ephemeral: true
+        });
+    }
 
-    return interaction.reply({
-      content: ✅ Synced ${channel.name} with ${category.name},
-      ephemeral: false
-    });
+    if (!channel.parentId) {
+        return interaction.reply({
+            content: "❌ Channel is not inside a category",
+            ephemeral: true
+        });
+    }
 
-  } catch (err) {
-    console.error(err);
-    return interaction.reply({
-      content: "❌ Failed to sync channel",
-      ephemeral: true
-    });
-  }
+    try {
+
+        // ia categoria reală
+        const category = await interaction.guild.channels.fetch(channel.parentId);
+
+        if (!category) {
+            return interaction.reply({
+                content: "❌ Category not found",
+                ephemeral: true
+            });
+        }
+
+        // 🔥 COPIAZĂ PERMISIUNILE DE LA CATEGORIE
+        const categoryPerms = category.permissionOverwrites.cache.map(perm => ({
+            id: perm.id,
+            allow: perm.allow.bitfield,
+            deny: perm.deny.bitfield,
+            type: perm.type
+        }));
+
+        // 🔥 APLICĂ PE CANAL
+        await channel.permissionOverwrites.set(categoryPerms);
+
+        await sendLog(
+            interaction.guild,
+            `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
+        );
+
+        return interaction.reply({
+            content: `✅ Synced ${channel.name} with ${category.name}`,
+            ephemeral: false
+        });
+
+    } catch (err) {
+        console.error(err);
+
+        return interaction.reply({
+            content: "❌ Failed to sync channel",
+            ephemeral: true
+        });
+    }
 }
-
 if (commandName === "warnstaff") {
 
  	   if (!(await isBotAdmin(interaction))) {
