@@ -22,33 +22,32 @@ process.on("uncaughtException", (err) => {
 // ===================== EXPRESS =====================
 const app = express();
 
-app.get("/", (request, response) => response.send("Bot is running"));
+app.get("/", (request, response) =>
+    response.send("Bot is running")
+);
 
 app.get("/health", (request, response) => {
-  if (!client.isReady()) {
-    return response.status(500).json({
-      status: "offline"
-    });
-  }
+    if (!client.isReady()) {
+        return response.status(500).json({
+            status: "offline"
+        });
+    }
 
-  response.status(200).json({
-    status: "online",
-    uptime: process.uptime(),
-    ping: client.ws.ping
-  });
+    response.status(200).json({
+        status: "online",
+        uptime: process.uptime(),
+        ping: client.ws.ping
+    });
 });
 
 app.get("/ping", (request, response) => {
     response.status(200).send("pong");
 });
 
-  response.status(200).send("Discord Online");
-;
-
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log("Express running on port", PORT);
+    console.log("Express running on port", PORT);
 });
 // ===================== ENV =====================
 const TOKEN = process.env.TOKEN;
