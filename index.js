@@ -450,8 +450,28 @@ async function sendStaffLog(guild, msg) {
 }
 
 // ===================== COMMANDS =====================
+// Ordinea urmează exact ordinea handler-elor din interactionCreate:
+// 1. syncrole
+// 2. synccategory
+// 3. syncchannel
+// 4. warnstaff
+// 5. denyrole
+// 6. allowbotrole
+// 7. removebotrole
+// 8. copyrolemember
+// 9. copychannelp
+// 10. copyrolrolecategory
+// 11. syncrolerole
+// 12. setmemberrole
+// 13. setstafflog
+// 14. staffsecurity
+// 15. removewarnstaff
+// 16. staffinfo
+// (+ celelalte comenzi fără handler încă)
+
 const commands = [
 
+  // 1. syncrole
   new SlashCommandBuilder()
     .setName("syncrole")
     .setDescription("Sync role permissions from category to all categories")
@@ -466,75 +486,7 @@ const commands = [
         .setRequired(true)
     ),
 
-  new SlashCommandBuilder()
-    .setName("denyrole")
-    .setDescription("Deny role in channel or category")
-    .addRoleOption(o =>
-      o.setName("role")
-      .setDescription("Select role")
-      .setRequired(true)
-    )
-    .addChannelOption(o =>
-      o.setName("target")
-      .setDescription("Select channel or category")
-      .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("allowbotrole")
-    .setDescription("Set bot admin role")
-    .addRoleOption(o =>
-      o.setName("role")
-        .setDescription("Select role")
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("removebotrole")
-    .setDescription("Remove bot admin role")
-    .addRoleOption(o =>
-      o.setName("role")
-        .setDescription("Select role")
-        .setRequired(true)
-    ),
-
-  new SlashCommandBuilder()
-    .setName("copyrolemember")
-    .setDescription("Copy role permissions to member (category or all)")
-    .addRoleOption(o =>
-      o.setName("role")
-        .setDescription("Select role")
-        .setRequired(true)
-    )
-    .addUserOption(o =>
-      o.setName("member")
-        .setDescription("Select member")
-        .setRequired(true)
-    )
-    .addChannelOption(o =>
-      o.setName("category")
-        .setDescription("Select category")
-        .setRequired(true)
-    )
-    .addStringOption(o =>
-      o.setName("mode")
-        .setDescription("category or alls")
-        .setRequired(true)
-        .addChoices(
-          { name: "category", value: "category" },
-          { name: "alls", value: "alls" }
-        )
-    ),
-
-  new SlashCommandBuilder()
-    .setName("syncchannel")
-    .setDescription("Sync channel permissions with its category")
-    .addChannelOption(o =>
-      o.setName("channel")
-        .setDescription("Select channel")
-        .setRequired(true)
-  ),
-
+  // 2. synccategory
   new SlashCommandBuilder()
     .setName("synccategory")
     .setDescription("Sync all channels in a category with category permissions")
@@ -544,59 +496,18 @@ const commands = [
         .setRequired(true)
   ),
 
+  // 3. syncchannel
   new SlashCommandBuilder()
-    .setName("copychannelp")
-    .setDescription("Copy all permissions from one channel to another")
+    .setName("syncchannel")
+    .setDescription("Sync channel permissions with its category")
     .addChannelOption(o =>
-      o.setName("source")
-        .setDescription("Channel with permissions")
-        .setRequired(true)
-    )
-    .addChannelOption(o =>
-      o.setName("target")
-        .setDescription("Channel to receive permissions")
+      o.setName("channel")
+        .setDescription("Select channel")
         .setRequired(true)
   ),
 
+  // 4. warnstaff
   new SlashCommandBuilder()
-    .setName("copyrolrolecategory")
-    .setDescription("Copy role permissions from a source channel/category to another role in another channel/category")
-    .addRoleOption(o =>
-      o.setName("role1")
-        .setDescription("Source role")
-        .setRequired(true)
-    )
-    .addChannelOption(o =>
-      o.setName("source")
-        .setDescription("Source channel/category")
-        .setRequired(true)
-    )
-    .addRoleOption(o =>
-      o.setName("role2")
-        .setDescription("Target role")
-        .setRequired(true)
-    )
-    .addChannelOption(o =>
-      o.setName("target")
-        .setDescription("Target channel/category")
-        .setRequired(true)
-),
-
-  new SlashCommandBuilder()
-	.setName("syncrolerole")
-	.setDescription("Sync all permissions from a role to another role")
-	.addRoleOption(o =>
-	  o.setName("rolesource")
-    	.setDescription("Source role")
-    	.setRequired(true)
-	)
-	.addRoleOption(o =>
-	  o.setName("roletarget")
-	    .setDescription("Target role")
-	    .setRequired(true)
-),
-
-new SlashCommandBuilder()
 	.setName("warnstaff")
 	.setDescription("Give a staff warn")
 	.addUserOption(o =>
@@ -629,48 +540,147 @@ new SlashCommandBuilder()
     	.setRequired(false)
 ),
 
-new SlashCommandBuilder()
-	.setName("staffwarns")
-	.setDescription("Show active warns")
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
-    	.setRequired(true)
+  // 5. denyrole
+  new SlashCommandBuilder()
+    .setName("denyrole")
+    .setDescription("Deny role in channel or category")
+    .addRoleOption(o =>
+      o.setName("role")
+      .setDescription("Select role")
+      .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("target")
+      .setDescription("Select channel or category")
+      .setRequired(true)
+    ),
+
+  // 6. allowbotrole
+  new SlashCommandBuilder()
+    .setName("allowbotrole")
+    .setDescription("Set bot admin role")
+    .addRoleOption(o =>
+      o.setName("role")
+        .setDescription("Select role")
+        .setRequired(true)
+    ),
+
+  // 7. removebotrole
+  new SlashCommandBuilder()
+    .setName("removebotrole")
+    .setDescription("Remove bot admin role")
+    .addRoleOption(o =>
+      o.setName("role")
+        .setDescription("Select role")
+        .setRequired(true)
+    ),
+
+  // 8. copyrolemember
+  new SlashCommandBuilder()
+    .setName("copyrolemember")
+    .setDescription("Copy role permissions to member (category or all)")
+    .addRoleOption(o =>
+      o.setName("role")
+        .setDescription("Select role")
+        .setRequired(true)
+    )
+    .addUserOption(o =>
+      o.setName("member")
+        .setDescription("Select member")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("category")
+        .setDescription("Select category")
+        .setRequired(true)
+    )
+    .addStringOption(o =>
+      o.setName("mode")
+        .setDescription("category or alls")
+        .setRequired(true)
+        .addChoices(
+          { name: "category", value: "category" },
+          { name: "alls", value: "alls" }
+        )
+    ),
+
+  // 9. copychannelp
+  new SlashCommandBuilder()
+    .setName("copychannelp")
+    .setDescription("Copy all permissions from one channel to another")
+    .addChannelOption(o =>
+      o.setName("source")
+        .setDescription("Channel with permissions")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("target")
+        .setDescription("Channel to receive permissions")
+        .setRequired(true)
+  ),
+
+  // 10. copyrolrolecategory
+  new SlashCommandBuilder()
+    .setName("copyrolrolecategory")
+    .setDescription("Copy role permissions from a source channel/category to another role in another channel/category")
+    .addRoleOption(o =>
+      o.setName("role1")
+        .setDescription("Source role")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("source")
+        .setDescription("Source channel/category")
+        .setRequired(true)
+    )
+    .addRoleOption(o =>
+      o.setName("role2")
+        .setDescription("Target role")
+        .setRequired(true)
+    )
+    .addChannelOption(o =>
+      o.setName("target")
+        .setDescription("Target channel/category")
+        .setRequired(true)
 ),
 
-new SlashCommandBuilder()
-.setName("staffhistory")
-.setDescription("Show full warn history")
-.addUserOption(o =>
-    o.setName("member")
-    .setDescription("Member")
-    .setRequired(true)
-),
-
-new SlashCommandBuilder()
-	.setName("removewarnstaff")
-	.setDescription("Remove one warn")
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
+  // 11. syncrolerole
+  new SlashCommandBuilder()
+	.setName("syncrolerole")
+	.setDescription("Sync all permissions from a role to another role")
+	.addRoleOption(o =>
+	  o.setName("rolesource")
+    	.setDescription("Source role")
     	.setRequired(true)
 	)
-	.addIntegerOption(o =>
-    	o.setName("warn")
-    	.setDescription("Warn number")
+	.addRoleOption(o =>
+	  o.setName("roletarget")
+	    .setDescription("Target role")
+	    .setRequired(true)
+),
+
+  // 12. setmemberrole
+  new SlashCommandBuilder()
+	.setName("setmemberrole")
+	.setDescription("Set member role for suspend system")
+	.addRoleOption(o =>
+    	o.setName("role")
+    	.setDescription("Member role")
     	.setRequired(true)
 ),
 
-new SlashCommandBuilder()
-	.setName("clearstaffwarns")
-	.setDescription("Remove all warns")
-	.addUserOption(o =>
-    	o.setName("member")
-    	.setDescription("Member")
+  // 13. setstafflog
+  new SlashCommandBuilder()
+	.setName("setstafflog")
+	.setDescription("Set staff log channel")
+	.addChannelOption(o =>
+    	o.setName("channel")
+    	.setDescription("Log channel")
     	.setRequired(true)
 ),
 
-new SlashCommandBuilder()
+  // 14. staffsecurity
+  new SlashCommandBuilder()
 	.setName("staffsecurity")
 	.setDescription("Set security level")
 	.addUserOption(o =>
@@ -693,6 +703,60 @@ new SlashCommandBuilder()
     	)
 ),
 
+  // 15. removewarnstaff
+  new SlashCommandBuilder()
+	.setName("removewarnstaff")
+	.setDescription("Remove one warn")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+	)
+	.addIntegerOption(o =>
+    	o.setName("warn")
+    	.setDescription("Warn number")
+    	.setRequired(true)
+),
+
+  // 16. staffinfo
+  new SlashCommandBuilder()
+	.setName("staffinfo")
+	.setDescription("View staff warnings")
+	.addUserOption(o =>
+	    o.setName("member")
+	    .setDescription("Member")
+  	  .setRequired(true)
+),
+
+  // --- Comenzi fără handler încă ---
+
+  new SlashCommandBuilder()
+	.setName("staffwarns")
+	.setDescription("Show active warns")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
+new SlashCommandBuilder()
+.setName("staffhistory")
+.setDescription("Show full warn history")
+.addUserOption(o =>
+    o.setName("member")
+    .setDescription("Member")
+    .setRequired(true)
+),
+
+new SlashCommandBuilder()
+	.setName("clearstaffwarns")
+	.setDescription("Remove all warns")
+	.addUserOption(o =>
+    	o.setName("member")
+    	.setDescription("Member")
+    	.setRequired(true)
+),
+
 new SlashCommandBuilder()
 	.setName("stafffreeze")
 	.setDescription("Freeze a staff")
@@ -709,15 +773,6 @@ new SlashCommandBuilder()
 	.addStringOption(o =>
     	o.setName("reason")
     	.setDescription("Reason")
-    	.setRequired(true)
-),
-
-new SlashCommandBuilder()
-	.setName("setmemberrole")
-	.setDescription("Set member role for suspend system")
-	.addRoleOption(o =>
-    	o.setName("role")
-    	.setDescription("Member role")
     	.setRequired(true)
 ),
 
@@ -810,33 +865,6 @@ new SlashCommandBuilder()
 ),
 
 new SlashCommandBuilder()
-	.setName("setstafflog")
-	.setDescription("Set staff log channel")
-	.addChannelOption(o =>
-    	o.setName("channel")
-    	.setDescription("Channel")
-    	.setRequired(true)
-),
-
-new SlashCommandBuilder()
-	.setName("setstafflog")
-	.setDescription("Set staff log channel")
-	.addChannelOption(o =>
-    	o.setName("channel")
-    	.setDescription("Log channel")
-    	.setRequired(true)
-),
-
-new SlashCommandBuilder()
-	.setName("staffinfo")
-	.setDescription("View staff warnings")
-	.addUserOption(o =>
-	    o.setName("member")
-	    .setDescription("Member")
-  	  .setRequired(true)
-),
-
-new SlashCommandBuilder()
 	.setName("topstaffwarns")
 	.setDescription("Top staff warns")
 
@@ -922,156 +950,75 @@ client.on("interactionCreate", async (interaction) => {
 
   const { commandName } = interaction;
 
-if (commandName === "setstafflog") {
+// ===================== SYNCROLE =====================
+if (commandName === "syncrole") {
 
-    if (!(await isBotAdmin(interaction))) {
-        return interaction.reply({
-            content: "❌ No permission",
-            ephemeral: true
-        });
-    }
-
-    const channel = interaction.options.getChannel("channel");
-
-    let config = await StaffConfig.findOne({
-        guildId: interaction.guild.id
+  if (!(await isBotAdmin(interaction))) {
+    return interaction.reply({
+      content: "❌ No permission",
+      ephemeral: true
     });
+  }
 
-    if (!config) {
+  const role = interaction.options.getRole("role");
+  const category = interaction.options.getChannel("category");
 
-        config = await StaffConfig.create({
-            guildId: interaction.guild.id
-		});
-	}
-		
-if (commandName === "staffsecurity") {
+  const sourceOverwrite =
+    category.permissionOverwrites.cache.get(role.id);
 
-    if (!(await isBotAdmin(interaction))) {
-        return interaction.reply({
-            content: "❌ No permission",
-            ephemeral: true
-        });
-    }
-
-    const memberUser =
-        interaction.options.getUser("member");
-
-    const level =
-        interaction.options.getInteger("level");
-
-    let security = await StaffSecurity.findOne({
-
-        guildId: interaction.guild.id,
-        userId: memberUser.id
-
+  if (!sourceOverwrite) {
+    return interaction.reply({
+      content: "❌ Role has no permissions in selected category",
+      ephemeral: true
     });
+  }
 
-    if (!security) {
+  try {
 
-        security = await StaffSecurity.create({
+    const permissions = {};
 
-            guildId: interaction.guild.id,
-            userId: memberUser.id
+    for (const perm of PermissionsBitField.FlagsKeys ?? Object.keys(PermissionsBitField.Flags)) {
 
-        });
+      const flag = PermissionsBitField.Flags[perm];
+
+      if (sourceOverwrite.allow.has(flag)) {
+        permissions[perm] = true;
+      }
+      else if (sourceOverwrite.deny.has(flag)) {
+        permissions[perm] = false;
+      }
 
     }
 
-    security.level = level;
+    const categories =
+      interaction.guild.channels.cache.filter(
+        c => c.type === 4
+      );
 
-    await security.save();
+    for (const cat of categories.values()) {
+      await cat.permissionOverwrites.edit(role, permissions);
+    }
 
-    await sendStaffLog(
-        interaction.guild,
-
-`🛡 STAFF SECURITY
-
-Member: ${memberUser.tag}
-
-Level: ${level}
-
-Set by: ${interaction.user.tag}`
+    await sendLog(
+      interaction.guild,
+      `🔁 SYNC ROLE
+Role: ${role.name}
+Source: ${category.name}
+User: ${interaction.user.tag}`
     );
 
+    return interaction.reply(
+      `✅ Copied all role permissions from ${category.name}`
+    );
+
+  } catch (err) {
+    console.error(err);
+
     return interaction.reply({
-
-        content:
-        `✅ Security level set to ${level}`
-
+      content: "❌ Failed to sync role",
+      ephemeral: true
     });
-
-}
-
-	if (commandName === "removewarnstaff") {
-
- 	   if (!(await isBotAdmin(interaction))) {
-     	   return interaction.reply({
-     	       content: "❌ No permission",
-     	       ephemeral: true
-    	    });
-   	 }
-
-  	  const member =
-    	    interaction.options.getUser("member");
-
-  	  const data =
-  	      await StaffWarn.findOne({
-
-  	          guildId: interaction.guild.id,
-   	         userId: member.id
-
-    	    });
-
- 	   if (!data || data.warns.length === 0)
- 	       return interaction.reply(
- 	           "❌ No warns"
-	        );
-
-  	  data.warns.pop();
-
-  	  await data.save();
-
-  	  return interaction.reply(
- 	       "✅ Warn removed"
- 	   );
-
-	}
-
-	if (commandName === "staffinfo") {
-
- 	   const member =
- 	       interaction.options.getUser("member");
-	
-  	  const data =
-  	      await StaffWarn.findOne({
-
-       	     guildId: interaction.guild.id,
-      	      userId: member.id
-
-    	    });
-
-   	 if (!data || data.warns.length === 0)
-      	  return interaction.reply(
-	            "✅ No warns"
-    	    );
-
-   	 let txt = "";
-
- 	   data.warns.forEach((w, i) => {
-
-        txt +=
-	`#${i + 1}
-	Reason: ${w.reason}
-	Severity: ${w.severity}
-	Task: ${w.task}
-	Expires: <t:${Math.floor(w.expireAt.getTime()/1000)}:R>
-
-	`;
-
-    	});
-
-    	return interaction.reply(txt);
-
+  }
 }
   
   if (commandName === "synccategory") {
@@ -1619,77 +1566,6 @@ Expires:
 
 }
 
-// ===================== SYNCROLE =====================
-if (commandName === "syncrole") {
-
-  if (!(await isBotAdmin(interaction))) {
-    return interaction.reply({
-      content: "❌ No permission",
-      ephemeral: true
-    });
-  }
-
-  const role = interaction.options.getRole("role");
-  const category = interaction.options.getChannel("category");
-
-  const sourceOverwrite =
-    category.permissionOverwrites.cache.get(role.id);
-
-  if (!sourceOverwrite) {
-    return interaction.reply({
-      content: "❌ Role has no permissions in selected category",
-      ephemeral: true
-    });
-  }
-
-  try {
-
-    const permissions = {};
-
-    for (const perm of PermissionsBitField.FlagsKeys ?? Object.keys(PermissionsBitField.Flags)) {
-
-      const flag = PermissionsBitField.Flags[perm];
-
-      if (sourceOverwrite.allow.has(flag)) {
-        permissions[perm] = true;
-      }
-      else if (sourceOverwrite.deny.has(flag)) {
-        permissions[perm] = false;
-      }
-
-    }
-
-    const categories =
-      interaction.guild.channels.cache.filter(
-        c => c.type === 4
-      );
-
-    for (const cat of categories.values()) {
-      await cat.permissionOverwrites.edit(role, permissions);
-    }
-
-    await sendLog(
-      interaction.guild,
-      `🔁 SYNC ROLE
-Role: ${role.name}
-Source: ${category.name}
-User: ${interaction.user.tag}`
-    );
-
-    return interaction.reply(
-      `✅ Copied all role permissions from ${category.name}`
-    );
-
-  } catch (err) {
-    console.error(err);
-
-    return interaction.reply({
-      content: "❌ Failed to sync role",
-      ephemeral: true
-    });
-  }
-}
-
 // ===================== DENYROLE =====================
 if (commandName === "denyrole") {
 
@@ -2074,6 +1950,158 @@ User: ${interaction.user.tag}`
 	
     	return interaction.reply(`✅ Member role set to ${role.name}`);
 	}
+
+	if (commandName === "setstafflog") {
+
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
+    }
+
+    const channel = interaction.options.getChannel("channel");
+
+    let config = await StaffConfig.findOne({
+        guildId: interaction.guild.id
+    });
+
+    if (!config) {
+
+        config = await StaffConfig.create({
+            guildId: interaction.guild.id
+		});
+	}
+		
+if (commandName === "staffsecurity") {
+
+    if (!(await isBotAdmin(interaction))) {
+        return interaction.reply({
+            content: "❌ No permission",
+            ephemeral: true
+        });
+    }
+
+    const memberUser =
+        interaction.options.getUser("member");
+
+    const level =
+        interaction.options.getInteger("level");
+
+    let security = await StaffSecurity.findOne({
+
+        guildId: interaction.guild.id,
+        userId: memberUser.id
+
+    });
+
+    if (!security) {
+
+        security = await StaffSecurity.create({
+
+            guildId: interaction.guild.id,
+            userId: memberUser.id
+
+        });
+
+    }
+
+    security.level = level;
+
+    await security.save();
+
+    await sendStaffLog(
+        interaction.guild,
+
+`🛡 STAFF SECURITY
+
+Member: ${memberUser.tag}
+
+Level: ${level}
+
+Set by: ${interaction.user.tag}`
+    );
+
+    return interaction.reply({
+
+        content:
+        `✅ Security level set to ${level}`
+
+    });
+
+}
+
+	if (commandName === "removewarnstaff") {
+
+ 	   if (!(await isBotAdmin(interaction))) {
+     	   return interaction.reply({
+     	       content: "❌ No permission",
+     	       ephemeral: true
+    	    });
+   	 }
+
+  	  const member =
+    	    interaction.options.getUser("member");
+
+  	  const data =
+  	      await StaffWarn.findOne({
+
+  	          guildId: interaction.guild.id,
+   	         userId: member.id
+
+    	    });
+
+ 	   if (!data || data.warns.length === 0)
+ 	       return interaction.reply(
+ 	           "❌ No warns"
+	        );
+
+  	  data.warns.pop();
+
+  	  await data.save();
+
+  	  return interaction.reply(
+ 	       "✅ Warn removed"
+ 	   );
+
+	}
+
+	if (commandName === "staffinfo") {
+
+ 	   const member =
+ 	       interaction.options.getUser("member");
+	
+  	  const data =
+  	      await StaffWarn.findOne({
+
+       	     guildId: interaction.guild.id,
+      	      userId: member.id
+
+    	    });
+
+   	 if (!data || data.warns.length === 0)
+      	  return interaction.reply(
+	            "✅ No warns"
+    	    );
+
+   	 let txt = "";
+
+ 	   data.warns.forEach((w, i) => {
+
+        txt +=
+	`#${i + 1}
+	Reason: ${w.reason}
+	Severity: ${w.severity}
+	Task: ${w.task}
+	Expires: <t:${Math.floor(w.expireAt.getTime()/1000)}:R>
+
+	`;
+
+    	});
+
+    	return interaction.reply(txt);
+
+}
 
 	if (commandName === "setstafflog") {
 
