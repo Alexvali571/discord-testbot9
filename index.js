@@ -2212,7 +2212,7 @@ User: ${interaction.user.tag}`
  		 userId: member.id
 	});
 }
-});
+};
 
 // =====================
 console.log("Starting bot...");
