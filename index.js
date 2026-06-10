@@ -1128,47 +1128,35 @@ if (commandName === "syncchannel") {
         });
     }
 
+    await interaction.deferReply(); // 🔥 FIX TIMEOUT
+
     const channel = interaction.options.getChannel("channel");
 
     if (!channel) {
-        return interaction.reply({
-            content: "❌ Channel not found",
-            ephemeral: true
-        });
+        return interaction.editReply("❌ Channel not found");
     }
 
     if (!channel.parentId) {
-        return interaction.reply({
-            content: "❌ Channel is not inside a category",
-            ephemeral: true
-        });
+        return interaction.editReply("❌ Channel is not inside a category");
     }
 
     try {
 
-        // ia categoria reală
         const category = await interaction.guild.channels.fetch(channel.parentId);
 
         if (!category) {
-            return interaction.reply({
-                content: "❌ Category not found",
-                ephemeral: true
-            });
+            return interaction.editReply("❌ Category not found");
         }
 
-        // 🔥 ia TOATE permisiunile corect din categorie
-        const overwrites = category.permissionOverwrites.cache.map(ow => {
+        // 🔥 ia permisiunile EXACT corect
+        const overwrites = category.permissionOverwrites.cache.map(ow => ({
+            id: ow.id,
+            allow: ow.allow,
+            deny: ow.deny,
+            type: ow.type
+        }));
 
-            return {
-                id: ow.id,
-                allow: ow.allow.bitfield,
-                deny: ow.deny.bitfield,
-                type: ow.type
-            };
-
-        });
-
-        // 🔥 resetează + aplică exact ca la categorie
+        // 🔥 aplică safe
         await channel.permissionOverwrites.set(overwrites);
 
         await sendLog(
@@ -1176,18 +1164,16 @@ if (commandName === "syncchannel") {
             `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
         );
 
-        return interaction.reply({
-            content: `✅ Synced ${channel.name} with ${category.name}`,
-            ephemeral: false
-        });
+        return interaction.editReply(
+            `✅ Synced ${channel.name} with ${category.name}`
+        );
 
     } catch (err) {
         console.error(err);
 
-        return interaction.reply({
-            content: "❌ Failed to sync channel",
-            ephemeral: true
-        });
+        return interaction.editReply(
+            "❌ Failed to sync channel"
+        );
     }
 }
 	
