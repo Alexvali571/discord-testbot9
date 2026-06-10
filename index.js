@@ -134,13 +134,25 @@ async function getSecurityLevel(guildId, userId) {
 }
 
 // Trimite log public în canalul setat cu /setstafflog
+// Trimite log public în canalul setat cu /setstafflog
 async function sendLog(guild, msg) {
     try {
         const config = await StaffConfig.findOne({ guildId: guild.id });
-        if (!config?.logChannelId) return;
+
+        console.log("[CONFIG]", config);
+
+        if (!config?.logChannelId)
+            return console.log("No log channel");
+
         const ch = guild.channels.cache.get(config.logChannelId);
-        if (!ch) return;
+
+        console.log("[CHANNEL]", ch);
+
+        if (!ch)
+            return console.log("Channel not found");
+
         await ch.send(msg);
+
     } catch (err) {
         console.error("[sendLog error]", err);
     }
@@ -606,6 +618,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
 
     // ===================== 4. WARNSTAFF =====================
     if (commandName === "warnstaff") {
+        try {
         if (!(await isBotAdmin(interaction)))
             return interaction.reply({ content: "❌ No permission", ephemeral: true });
 
@@ -645,7 +658,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             if (security === 5) { suspendHours = 24; freezeHours = 12; }
             if (security === 6) { suspendHours = 48; freezeHours = 24; }
             if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
+            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHours}`;
         }
 
         if (warnCount === 2) {
@@ -655,7 +668,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             if (security === 5) { suspendHours = 24; freezeHours = 12; }
             if (security === 6) { suspendHours = 48; freezeHours = 24; }
             if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHpurs}`;
+            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHours}`;
         }
 
         if (warnCount === 3) {
@@ -743,6 +756,15 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         return interaction.reply(
             `✅ Warn **${warnCount}/6** given to **${member.user.tag}** — Action: ${actionMsg}`
         );
+            } catch (err) {
+        console.error("[warnstaff]", err);
+
+        if (!interaction.replied)
+            await interaction.reply({
+                content: `❌ Error: ${err.message}`,
+                ephemeral: true
+            });
+        }
     }
 
     // ===================== 5. DENYROLE =====================
