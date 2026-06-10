@@ -1130,7 +1130,7 @@ if (commandName === "syncchannel") {
 
   const channel = interaction.options.getChannel("channel");
 
-  if (!channel || !channel.parentId) {
+  if (!channel.parentId) {
     return interaction.reply({
       content: "❌ Channel is not inside a category",
       ephemeral: true
@@ -1140,18 +1140,23 @@ if (commandName === "syncchannel") {
   try {
     const category = await interaction.guild.channels.fetch(channel.parentId);
 
-    const categoryPerms = category.permissionOverwrites.cache;
+    if (!category) {
+      return interaction.reply({
+        content: "❌ Category not found",
+        ephemeral: true
+      });
+    }
 
-    // reset channel to category perms
-    await channel.permissionOverwrites.set(categoryPerms);
+    // 🔥 aici se face sync-ul REAL
+    await channel.lockPermissions();
 
     await sendLog(
       interaction.guild,
-      `🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}`
+      🔄 SYNC CHANNEL\nChannel: ${channel.name}\nCategory: ${category.name}\nUser: ${interaction.user.tag}
     );
 
     return interaction.reply({
-      content: `✅ ${channel.name} synced with ${category.name}`,
+      content: ✅ Synced ${channel.name} with ${category.name},
       ephemeral: false
     });
 
