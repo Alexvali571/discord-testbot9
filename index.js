@@ -56,6 +56,82 @@ const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
     memberRoleId: String
 }));
 
+const demoteMap = {
+
+    "Owner": "Co-Owner",
+
+    "Founder": "Co-Founder",
+
+    "Co-Owner": "Manager General",
+
+    "Co-Founder": "Manager General",
+
+    "Manager General": "Sub-Manager General",
+
+    "Sub-Manager General": "Supervizor",
+
+    "Supervizor": "ADMIN Manager",
+
+    "ADMIN Manager": "Advanced ADMIN",
+
+    "Mod Manager": "Advanced Moderator",
+
+    "Advanced ADMIN": "ADMIN",
+
+    "Advanced Moderator": "Moderator",
+
+    "HR Manager": "Helper",
+
+    "Public Relation": "Helper",
+
+    "Event Manager": "Event Coordonater",
+
+    "Event Coordonater": "Convoy-Helper",
+
+    "Media Manager": "Media Team",
+
+    "Tester Manager": "Tester",
+
+    "Rute Tester Leader": "Rute Tester",
+
+    "Helper Leader": "Helper",
+
+    "ADMIN": "Member",
+
+    "Moderator": "Member",
+
+    "Event Team": "Member",
+
+    "Convoy-Helper": "Member",
+
+    "Media Team": "Member",
+
+    "Rute Tester": "Member",
+
+    "Tester": "Member",
+
+    "Helper": "Member"
+
+};
+
+const MEMBER_ROLE_ID = 1492913512207614172;
+
+for (const roleName of Object.keys(demoteMap)) {
+
+    const role = interaction.guild.roles.cache.find(
+        r => r.name === roleName
+    );
+
+    if (role && member.roles.cache.has(role.id)) {
+
+        await member.roles.remove(role);
+
+    }
+
+}
+
+await member.roles.add(MEMBER_ROLE_ID);
+
 // STAFF SECURITY
 const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
     guildId: String,
@@ -640,74 +716,221 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         if (!data) data = await StaffWarn.create({ guildId: interaction.guild.id, userId: member.id, warns: [] });
 
         const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-        data.warns.push({ reason, severity, task, moderatorId: interaction.user.id, expireAt });
-        await data.save();
-
-        const warnCount = data.warns.length;
-        const security  = await getSecurityLevel(interaction.guild.id, member.id);
-
-        let suspendHours = 0;
-        let freezeHours  = 0;
-        let actionMsg    = "";
-
-        // Warn thresholds
-        if (warnCount === 1) {
-            if (security === 2) freezeHours  = 6;
-            if (security === 3) freezeHours  = 16;
-            if (security === 4) freezeHours  = 48;
-            if (security === 5) { suspendHours = 24; freezeHours = 12; }
-            if (security === 6) { suspendHours = 48; freezeHours = 24; }
-            if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHours}`;
-        }
-
-        if (warnCount === 2) {
-            if (security === 2) freezeHours  = 6;
-            if (security === 3) freezeHours  = 16;
-            if (security === 4) freezeHours  = 48;
-            if (security === 5) { suspendHours = 24; freezeHours = 12; }
-            if (security === 6) { suspendHours = 48; freezeHours = 24; }
-            if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Verbal warning + Suspend ${suspendHours}h + Freeze ${freezeHours}`;
-        }
-
-        if (warnCount === 3) {
-            if (security === 2) freezeHours  = 6;
-            if (security === 3) freezeHours  = 16;
-            if (security === 4) freezeHours  = 48;
-            if (security === 5) { suspendHours = 24; freezeHours = 12; }
-            if (security === 6) { suspendHours = 48; freezeHours = 24; }
-            if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Suspend ${suspendHours+12}h + Freeze ${freezeHours+12}h`;
-        }
-
-        if (warnCount === 4) {
-            if (security === 2) freezeHours  = 6;
-            if (security === 3) freezeHours  = 16;
-            if (security === 4) freezeHours  = 48;
-            if (security === 5) { suspendHours = 24; freezeHours = 12; }
-            if (security === 6) { suspendHours = 48; freezeHours = 24; }
-            if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Suspend ${suspendHours+24}h + Freeze ${freezeHours+36}h`;
-        }
+        const warnCount = data.warns.length + 1;
 
         if (warnCount === 5) {
-            if (security === 2) freezeHours  = 6;
-            if (security === 3) freezeHours  = 16;
-            if (security === 4) freezeHours  = 48;
-            if (security === 5) { suspendHours = 24; freezeHours = 12; }
-            if (security === 6) { suspendHours = 48; freezeHours = 24; }
-            if (security === 7) { suspendHours = 72; freezeHours = 36; }
-            actionMsg = `Demote + Suspend ${suspendHours+36}h + Freeze ${freezeHours+48}h`;
+           const currentRole = staffHierarchy.find(
+    roleName =>
+        member.roles.cache.some(
+            r => r.name === roleName
+        )
+ );
 
-            if (config?.demoteRoleId)
-                await member.roles.add(config.demoteRoleId).catch(() => {});
+if (currentRole) {
 
-            try { await member.send("⚠️ You have 5 staff warns. The next warn may result in permanent staff removal."); } catch {}
+    const currentRole = member.roles.cache.find(
+            r => demoteMap[r.name]
+        );
+
+        if (currentRole) {
+
+            const newRoleName = demoteMap[currentRole.name];
+
+            const newRole = interaction.guild.roles.cache.find(
+                r => r.name === newRoleName
+            );
+
+            await member.roles.remove(currentRole);
+        
+            if (newRole) {
+
+                await member.roles.add(newRole);
+
+            }
+
+        }
+        }
+        }
+        }
+    }
+}
+
+        if (warnCount === 6) {
+
+    actionMsg = "REMOVE STAFF";
+
+    for (const roleName of staffHierarchy) {
+
+        const role =
+            interaction.guild.roles.cache.find(
+                r => r.name === roleName
+            );
+
+        if (
+            role &&
+            member.roles.cache.has(role.id)
+        ) {
+
+            await member.roles.remove(role);
+
         }
 
-        if (warnCount >= 6) {
-            actionMsg = "REMOVE STAFF";
+    }
+
+    await member.roles.add(
+        MEMBER_ROLE_ID
+    );
+
+    // LOG
+
+    const logChannel =
+        interaction.guild.channels.cache.get(
+            config?.logChannelId
+        );
+
+    if (logChannel) {
+
+        await logChannel.send(
+
+`🚨 STAFF REMOVED
+
+Member:
+${member.user.tag}
+
+All staff roles removed.
+
+Member role added.
+
+Moderator:
+${interaction.user.tag}`
+
+        );
+
+    }
+
+}
+
+        if (warnCount > 6) {
+            return interaction.reply({
+                content: "❌ Nu se pot da mai mult de 6 warn-uri staff-urilor.",
+                ephemeral: true
+            });
+        }
+
+        
+
+        data.warns.push({
+            reason,
+            severity,
+            task,
+            moderatorId: interaction.user.id,
+            expireAt
+        });
+
+        await data.save();
+            
+            const security  = await getSecurityLevel(interaction.guild.id, member.id);
+
+            let suspendHours = 0;
+            let freezeHours = 0;
+
+        // din numărul de warn-uri
+        switch (warnCount) {
+            case 1:
+                suspendHours += 0;
+                freezeHours += 0;
+                break;
+
+            case 2:
+                suspendHours += 6;
+                freezeHours += 6;
+                break;
+
+            case 3:
+                suspendHours += 12;
+                freezeHours += 12;
+                break;
+
+            case 4:
+                suspendHours += 24;
+                freezeHours += 24;
+                break;
+
+            case 5:
+                suspendHours += 48;
+                freezeHours += 48;
+                break;
+
+            case 6:
+                suspendHours += 72;
+                freezeHours += 72;
+                break;
+        }
+
+            switch (severity) {
+            case 1:
+                freezeHours += 1;
+                break;
+
+            case 2:
+                freezeHours += 3;
+                break;
+
+            case 3:
+                freezeHours += 6;
+                break;
+
+            case 4:
+                suspendHours += 6;
+                freezeHours += 12;
+                break;
+
+            case 5:
+                suspendHours += 12;
+                freezeHours += 24;
+                break;
+
+            case 6:
+                suspendHours += 24;
+                freezeHours += 36;
+                break;
+
+            case 7:
+                suspendHours += 48;
+                freezeHours += 48;
+                break;
+        }
+            if(warnCount === 5) {
+                actionMsg = `Demote + Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+
+                const logChannel =
+        interaction.guild.channels.cache.get(
+        config?.logChannelId
+        );
+
+        if (logChannel) {
+
+            await logChannel.send(
+
+        `⚠️ WARN 5
+
+        ${member.user.tag}
+
+        Automatic demote activated.
+
+        Suspend:
+        ${suspendHours}h
+
+        Freeze:
+        ${freezeHours}h`
+
+            );
+
+        }
+            } else {
+                actionMsg = `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+            }
+
             if (config?.staffRoleId) await member.roles.remove(config.staffRoleId).catch(() => {});
         }
 
@@ -765,7 +988,6 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
                 ephemeral: true
             });
         }
-    }
 
     // ===================== 5. DENYROLE =====================
     if (commandName === "denyrole") {
