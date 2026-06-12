@@ -510,6 +510,20 @@ const commands = [
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("warnid").setDescription("Warn ID").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
+
+    new SlashCommandBuilder()
+        .setName("setfreezerole")
+        .setDescription("Set freeze role")
+        .addRoleOption(o => o.setName("role").setDescription("Freeze role").setRequired(true)
+        ),
+
+new SlashCommandBuilder()
+        .setName("setsuspendrole")
+        .setDescription("Set suspend role")
+        .addRoleOption(o => o.setName("role").setDescription("Suspend role").setRequired(true)
+        ),
+
+    
 ].map(c => c.toJSON());
  
 // ===================== REGISTER =====================
@@ -1768,6 +1782,66 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         return interaction.reply(`✅ Warn ID **${warnId}** marked as removed from history`);
     }
+
+    //=====/SETFREEZEROLE=======
+    if(commandName === "setfreezerole"){
+
+    if(!(await isBotAdmin(interaction)))
+        return interaction.reply({
+            content:"❌ No permission",
+            ephemeral:true
+        });
+
+    const role = interaction.options.getRole("role");
+
+    let config = await StaffConfig.findOne({
+        guildId: interaction.guild.id
+    });
+
+    if(!config)
+        config = await StaffConfig.create({
+            guildId: interaction.guild.id
+        });
+
+    config.freezeRoleId = role.id;
+
+    await config.save();
+
+    return interaction.reply(
+        `✅ Freeze role set to ${role}`
+    );
+
+}
+
+    //=======/SETSUSPENDROLE=======
+    if(commandName === "setsuspendrole"){
+
+    if(!(await isBotAdmin(interaction)))
+        return interaction.reply({
+            content:"❌ No permission",
+            ephemeral:true
+        });
+
+    const role = interaction.options.getRole("role");
+
+    let config = await StaffConfig.findOne({
+        guildId: interaction.guild.id
+    });
+
+    if(!config)
+        config = await StaffConfig.create({
+            guildId: interaction.guild.id
+        });
+
+    config.suspendRoleId = role.id;
+
+    await config.save();
+
+    return interaction.reply(
+        `✅ Suspend role set to ${role}`
+    );
+
+}
 });
  
 // ===================== START =====================
