@@ -44,6 +44,56 @@ const GuildConfig = mongoose.model("GuildConfig", new mongoose.Schema({
     guildId:    String,
     botAdminRole: String
 }));
+
+const staffWarnSchema = new mongoose.Schema({
+
+    guildId: String,
+
+    userId: String,
+
+    warns: [
+
+        {
+
+            warnId: Number,
+
+            reason: String,
+
+            severity: Number,
+
+            task: String,
+
+            moderatorId: String,
+
+            date: {
+              type: Date,
+            default: Date.now
+            },
+
+            expireAt: Date,
+
+            active: {
+                type: Boolean,
+                default: true
+            },
+
+            removed: {
+                type: Boolean,
+                default: false
+            },
+
+            removedBy: String,
+
+            removedAt: Date,
+
+            removeReason: String
+
+        }
+
+    ]
+
+});
+
  
 // STAFF CONFIG  ← era definit dar NICIODATĂ compilat; acum este corect
 const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
@@ -64,18 +114,10 @@ const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
 }));
  
 // STAFF WARN
-const StaffWarn = mongoose.model("StaffWarn", new mongoose.Schema({
-    guildId: String,
-    userId:  String,
-    warns: [{
-        reason:      String,
-        severity:    Number,
-        task:        String,
-        moderatorId: String,
-        date:        { type: Date, default: Date.now },
-        expireAt:    Date
-    }]
-}));
+const StaffWarn = mongoose.model(
+    "StaffWarn",
+    staffWarnSchema
+);
  
 // FREEZE
 const StaffFreeze = mongoose.model("StaffFreeze", new mongoose.Schema({
@@ -348,7 +390,8 @@ const commands = [
         .setName("removewarnstaff")
         .setDescription("Remove one warn by number")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
-        .addIntegerOption(o => o.setName("warn").setDescription("Warn number").setRequired(true)),
+        .addIntegerOption(o => o.setName("warn").setDescription("Warn number").setRequired(true))
+        .addStringOption(o => o.setName("reason").setDescription("Reason for removing warn").setRequired(true)),
  
     // 16. staffinfo
     new SlashCommandBuilder()
@@ -358,7 +401,7 @@ const commands = [
  
     // --- Comenzi fără handler încă ---
     new SlashCommandBuilder()
-        .setName("staffwarns")
+        .setName("s")
         .setDescription("Show active warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
@@ -368,7 +411,7 @@ const commands = [
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
     new SlashCommandBuilder()
-        .setName("clearstaffwarns")
+        .setName("clears")
         .setDescription("Remove all warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
@@ -420,9 +463,16 @@ const commands = [
         .addIntegerOption(o => o.setName("days").setDescription("Days").setRequired(true)),
  
     new SlashCommandBuilder()
-        .setName("topstaffwarns")
-        .setDescription("Top staff warns")
- 
+        .setName("tops")
+        .setDescription("Top staff warns"),
+
+    new SlashCommandBuilder()
+        .setName("removewarnhistory")
+        .setDescription("Remove warn from history")
+        .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
+        .addIntegerOption(o => o.setName("warnid").setDescription("Warn ID").setRequired(true))
+        .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
+
 ].map(c => c.toJSON());
  
 // ===================== REGISTER =====================
@@ -447,7 +497,21 @@ client.once("ready", async () => {
             const allWarns = await StaffWarn.find();
             for (const data of allWarns) {
                 const before = data.warns.length;
-                data.warns = data.warns.filter(w => w.expireAt > new Date());
+    for (const warn of data.warns) {
+
+        if (
+            warn.active &&
+            !warn.removed &&
+            warn.expireAt <= new Date()
+        ) {
+
+            warn.active = false;
+
+        }
+
+    }
+
+    await data.save();
                 if (before !== data.warns.length) {
                     await data.save();
                     const guild = client.guilds.cache.get(data.guildId);
@@ -648,11 +712,25 @@ if (commandName === "warnstaff") {
     const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
     data.warns.push({
-        reason,
-        severity,
-        task,
-        moderatorId: interaction.user.id,
-        expireAt
+
+    warnId: data.warns.length + 1,
+
+    reason,
+
+    severity,
+
+    task,
+
+    moderatorId: interaction.user.id,
+
+    expireAt: new Date(
+        Date.now() + 14 * 24 * 60 * 60 * 1000
+    ),
+
+    active: true,
+
+    removed: false
+
     });
 
     await data.save();
@@ -1103,6 +1181,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         const memberUser = interaction.options.getUser("member");
         const warnNum    = interaction.options.getInteger("warn");
+        const removeReason =interaction.options.getString("reason");
  
         const data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
  
@@ -1112,17 +1191,25 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         if (warnNum < 1 || warnNum > data.warns.length)
             return interaction.reply(`❌ Invalid warn number. This member has **${data.warns.length}** warn(s).`);
  
-        const removed = data.warns.splice(warnNum - 1, 1)[0]; // Fix: sterge warn-ul corect dupa index
-        await data.save();
+        const removed = data.warns[warnNum - 1];
+
+        removed.active = false;
+        removed.removed = true;
+        removed.removedBy = interaction.user.id;
+        removed.removedAt = new Date();
+        removed.removeReason = interaction.options.getString("reason");
+
+         await data.save();// Fix: sterge warn-ul corect dupa index
  
         await sendLog(interaction.guild,
 `🗑 STAFF WARN REMOVED
  
 Member: ${memberUser.tag} (${memberUser.id})
 Warn #${warnNum} removed
-Reason was: ${removed.reason}
+Original reason: ${warn.reason}
+Remove reason: ${removeReason}
 Removed by: ${interaction.user.tag} (${interaction.user.id})
-Remaining warns: ${data.warns.length}
+Removed by: ${interaction.user.tag}
 Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         );
  
@@ -1143,15 +1230,40 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         let txt = `📋 **Staff warns for ${memberUser.tag}** (${data.warns.length}/6)\n\n`;
         data.warns.forEach((w, i) => {
+
+        let status = "🟢 Active";
+
+     if (w.removed)
+            status = "🔴 Removed";
+
+        else if (!w.active)
+            status = "🟡 Expired";
+
+     txt +=
+    `#${w.warnId}
+
+    Status: ${status}
+    Reason: ${w.reason}
+    Severity: ${w.severity}
+    Task: ${w.task}
+    Moderator: <@${w.moderatorId}>
+    Expires: <t:${Math.floor(w.expireAt.getTime()/1000)}:R>
+    `;
+
+        if (w.removed) {
+
             txt +=
-`**#${i + 1}**
-Reason: ${w.reason}
-Severity: ${w.severity}
-Task: ${w.task}
-Expires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>
- 
-`;
-        });
+    `Removed by: <@${w.removedBy}>
+    Remove reason: ${w.removedReason}
+    Removed at: <t:${Math.floor(w.removedAt.getTime()/1000)}:F>
+
+    `;
+
+        }
+
+        txt += "\n";
+
+    });
  
         return interaction.reply(txt);
     }
@@ -1654,6 +1766,83 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         });
  
         return interaction.reply(txt);
+    }
+
+    if (commandName === "removewarnhistory") {
+
+        if (!(await isBotAdmin(interaction)))
+         return interaction.reply({
+             content: "❌ No permission",
+             ephemeral: true
+            });
+
+        const memberUser =
+         interaction.options.getUser("member");
+
+        const warnId =
+          interaction.options.getInteger("warnid");
+
+     const reason =
+         interaction.options.getString("reason");
+
+     const data =
+         await StaffWarn.findOne({
+
+             guildId: interaction.guild.id,
+                userId: memberUser.id
+
+            });
+
+        if (!data)
+         return interaction.reply("❌ No history");
+
+        const warn =
+         data.warns.find(
+              w => w.warnId === warnId
+         );
+
+        if (!warn)
+         return interaction.reply(
+             "❌ Warn not found"
+            );
+
+     warn.active = false;
+
+        warn.removed = true;
+
+     warn.removedBy =
+         interaction.user.id;
+
+     warn.removedAt =
+            new Date();
+
+     warn.removeReason =
+            reason;
+
+        await data.save();
+
+     await sendLog(
+          interaction.guild,
+
+    `🗑 WARN HISTORY REMOVED
+
+    Member:
+    ${memberUser.tag}
+
+    Warn ID:
+    ${warnId}
+
+    Removed by:
+    ${interaction.user.tag}
+
+    Reason:
+    ${reason}`
+    );
+
+        return interaction.reply(
+    `✅ Warn ID ${warnId} removed`
+    );
+
     }
 });
  
