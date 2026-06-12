@@ -401,7 +401,7 @@ const commands = [
  
     // --- Comenzi fără handler încă ---
     new SlashCommandBuilder()
-        .setName("s")
+        .setName("staffwarns")
         .setDescription("Show active warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
@@ -411,7 +411,7 @@ const commands = [
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
     new SlashCommandBuilder()
-        .setName("clears")
+        .setName("clearstaffwarns")
         .setDescription("Remove all warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
  
@@ -463,7 +463,7 @@ const commands = [
         .addIntegerOption(o => o.setName("days").setDescription("Days").setRequired(true)),
  
     new SlashCommandBuilder()
-        .setName("tops")
+        .setName("topstaffwarns")
         .setDescription("Top staff warns"),
 
     new SlashCommandBuilder()
@@ -845,8 +845,35 @@ Action: ${actionMsg}
 Time: <t:${Math.floor(Date.now() / 1000)}:F>`
     );
 
+    const expireTimestamp =
+    Math.floor(expireAt.getTime() / 1000);
+
     return interaction.reply(
-        `✅ Warn ${warnCount}/6 given to ${member.user.tag} — ${actionMsg}`
+
+    `⚠️ **STAFF WARN**
+
+    👤 Member: <@${member.id}> (${member.user.tag})
+    👮 Moderator: <@${interaction.user.id}> (${interaction.user.tag})
+
+    📝 Reason:
+    ${reason}
+
+    📊 Warn Count:
+        ${warnCount}/6
+
+    🔴 Severity:
+        ${severity}
+
+    📋 Task:
+        ${task}
+
+    ⚙️ Action:
+        ${actionMsg}
+
+    ⏰ Expires:
+        <t:${expireTimestamp}:F>
+        (<t:${expireTimestamp}:R>)`
+
     );
 }
  
@@ -1254,7 +1281,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
 
             txt +=
     `Removed by: <@${w.removedBy}>
-    Remove reason: ${w.removedReason}
+    Remove reason: ${w.removeReason}
     Removed at: <t:${Math.floor(w.removedAt.getTime()/1000)}:F>
 
     `;
