@@ -39,63 +39,32 @@ mongoose.connection.on("connected",    () => console.log("✅ MongoDB connected"
  
 // ===================== DB MODELS =====================
  
-// GUILD CONFIG
 const GuildConfig = mongoose.model("GuildConfig", new mongoose.Schema({
     guildId:    String,
     botAdminRole: String
 }));
-
-const staffWarnSchema = new mongoose.Schema({
-
-    guildId: String,
-
-    userId: String,
-
-    warns: [
-
-        {
-
-            warnId: Number,
-
-            reason: String,
-
-            severity: Number,
-
-            task: String,
-
-            moderatorId: String,
-
-            date: {
-              type: Date,
-            default: Date.now
-            },
-
-            expireAt: Date,
-
-            active: {
-                type: Boolean,
-                default: true
-            },
-
-            removed: {
-                type: Boolean,
-                default: false
-            },
-
-            removedBy: String,
-
-            removedAt: Date,
-
-            removeReason: String
-
-        }
-
-    ]
-
-});
-
  
-// STAFF CONFIG  ← era definit dar NICIODATĂ compilat; acum este corect
+const staffWarnSchema = new mongoose.Schema({
+    guildId: String,
+    userId: String,
+    warns: [
+        {
+            warnId: Number,
+            reason: String,
+            severity: Number,
+            task: String,
+            moderatorId: String,
+            date: { type: Date, default: Date.now },
+            expireAt: Date,
+            active: { type: Boolean, default: true },
+            removed: { type: Boolean, default: false },
+            removedBy: String,
+            removedAt: Date,
+            removeReason: String
+        }
+    ]
+});
+ 
 const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
     guildId:      String,
     logChannelId: String,
@@ -106,20 +75,14 @@ const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
     memberRoleId: String
 }));
  
-// STAFF SECURITY
 const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
     guildId: String,
     userId:  String,
     level:   { type: Number, default: 1 }
 }));
  
-// STAFF WARN
-const StaffWarn = mongoose.model(
-    "StaffWarn",
-    staffWarnSchema
-);
+const StaffWarn = mongoose.model("StaffWarn", staffWarnSchema);
  
-// FREEZE
 const StaffFreeze = mongoose.model("StaffFreeze", new mongoose.Schema({
     guildId:     String,
     userId:      String,
@@ -128,7 +91,6 @@ const StaffFreeze = mongoose.model("StaffFreeze", new mongoose.Schema({
     permissions: Object
 }));
  
-// SUSPEND
 const StaffSuspend = mongoose.model("StaffSuspend", new mongoose.Schema({
     guildId:    String,
     userId:     String,
@@ -137,7 +99,6 @@ const StaffSuspend = mongoose.model("StaffSuspend", new mongoose.Schema({
     expiresAt:  Date
 }));
  
-// DEMOTE
 const StaffDemote = mongoose.model("StaffDemote", new mongoose.Schema({
     guildId:  String,
     userId:   String,
@@ -146,7 +107,6 @@ const StaffDemote = mongoose.model("StaffDemote", new mongoose.Schema({
     date:     { type: Date, default: Date.now }
 }));
  
-// BLACKLIST
 const StaffBlacklist = mongoose.model("StaffBlacklist", new mongoose.Schema({
     guildId:     String,
     userId:      String,
@@ -155,7 +115,6 @@ const StaffBlacklist = mongoose.model("StaffBlacklist", new mongoose.Schema({
     date:        { type: Date, default: Date.now }
 }));
  
-// PROBATION
 const StaffProbation = mongoose.model("StaffProbation", new mongoose.Schema({
     guildId:   String,
     userId:    String,
@@ -175,7 +134,6 @@ async function getSecurityLevel(guildId, userId) {
     return s?.level || 1;
 }
  
-// Trimite log public în canalul setat cu /setstafflog
 async function sendLog(guild, msg) {
     try {
         const config = await StaffConfig.findOne({ guildId: guild.id });
@@ -275,27 +233,19 @@ process.on("uncaughtException",  console.error);
  
 // ===================== COMMANDS =====================
 const commands = [
- 
-    // 1. syncrole
     new SlashCommandBuilder()
         .setName("syncrole")
         .setDescription("Sync role permissions from category to all categories")
         .addRoleOption(o => o.setName("role").setDescription("Select role").setRequired(true))
         .addChannelOption(o => o.setName("category").setDescription("Select category").setRequired(true)),
- 
-    // 2. synccategory
     new SlashCommandBuilder()
         .setName("synccategory")
         .setDescription("Sync all channels in a category with category permissions")
         .addChannelOption(o => o.setName("category").setDescription("Select category").setRequired(true)),
- 
-    // 3. syncchannel
     new SlashCommandBuilder()
         .setName("syncchannel")
         .setDescription("Sync channel permissions with its category")
         .addChannelOption(o => o.setName("channel").setDescription("Select channel").setRequired(true)),
- 
-    // 4. warnstaff
     new SlashCommandBuilder()
         .setName("warnstaff")
         .setDescription("Give a staff warn")
@@ -308,27 +258,19 @@ const commands = [
             ))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true))
         .addStringOption(o => o.setName("task").setDescription("Task to remove warn").setRequired(false)),
- 
-    // 5. denyrole
     new SlashCommandBuilder()
         .setName("denyrole")
         .setDescription("Deny role in channel or category")
         .addRoleOption(o => o.setName("role").setDescription("Select role").setRequired(true))
         .addChannelOption(o => o.setName("target").setDescription("Select channel or category").setRequired(true)),
- 
-    // 6. allowbotrole
     new SlashCommandBuilder()
         .setName("allowbotrole")
         .setDescription("Set bot admin role")
         .addRoleOption(o => o.setName("role").setDescription("Select role").setRequired(true)),
- 
-    // 7. removebotrole
     new SlashCommandBuilder()
         .setName("removebotrole")
         .setDescription("Remove bot admin role")
         .addRoleOption(o => o.setName("role").setDescription("Select role").setRequired(true)),
- 
-    // 8. copyrolemember
     new SlashCommandBuilder()
         .setName("copyrolemember")
         .setDescription("Copy role permissions to member (category or all)")
@@ -337,15 +279,11 @@ const commands = [
         .addChannelOption(o => o.setName("category").setDescription("Select category").setRequired(true))
         .addStringOption(o => o.setName("mode").setDescription("category or alls").setRequired(true)
             .addChoices({ name: "category", value: "category" }, { name: "alls", value: "alls" })),
- 
-    // 9. copychannelp
     new SlashCommandBuilder()
         .setName("copychannelp")
         .setDescription("Copy all permissions from one channel to another")
         .addChannelOption(o => o.setName("source").setDescription("Channel with permissions").setRequired(true))
         .addChannelOption(o => o.setName("target").setDescription("Channel to receive permissions").setRequired(true)),
- 
-    // 10. copyrolrolecategory
     new SlashCommandBuilder()
         .setName("copyrolrolecategory")
         .setDescription("Copy role permissions from a source channel/category to another role in another channel/category")
@@ -353,27 +291,19 @@ const commands = [
         .addChannelOption(o => o.setName("source").setDescription("Source channel/category").setRequired(true))
         .addRoleOption(o => o.setName("role2").setDescription("Target role").setRequired(true))
         .addChannelOption(o => o.setName("target").setDescription("Target channel/category").setRequired(true)),
- 
-    // 11. syncrolerole
     new SlashCommandBuilder()
         .setName("syncrolerole")
         .setDescription("Sync all permissions from a role to another role")
         .addRoleOption(o => o.setName("rolesource").setDescription("Source role").setRequired(true))
         .addRoleOption(o => o.setName("roletarget").setDescription("Target role").setRequired(true)),
- 
-    // 12. setmemberrole
     new SlashCommandBuilder()
         .setName("setmemberrole")
         .setDescription("Set member role for suspend system")
         .addRoleOption(o => o.setName("role").setDescription("Member role").setRequired(true)),
- 
-    // 13. setstafflog
     new SlashCommandBuilder()
         .setName("setstafflog")
         .setDescription("Set staff log channel")
         .addChannelOption(o => o.setName("channel").setDescription("Log channel").setRequired(true)),
- 
-    // 14. staffsecurity
     new SlashCommandBuilder()
         .setName("staffsecurity")
         .setDescription("Set security level")
@@ -384,95 +314,76 @@ const commands = [
                 { name: "4", value: 4 }, { name: "5", value: 5 }, { name: "6", value: 6 },
                 { name: "7", value: 7 }
             )),
- 
-    // 15. removewarnstaff
     new SlashCommandBuilder()
         .setName("removewarnstaff")
         .setDescription("Remove one warn by number")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("warn").setDescription("Warn number").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason for removing warn").setRequired(true)),
- 
-    // 16. staffinfo
     new SlashCommandBuilder()
         .setName("staffinfo")
         .setDescription("View staff warnings")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
-    // --- Comenzi fără handler încă ---
     new SlashCommandBuilder()
         .setName("staffwarns")
         .setDescription("Show active warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffhistory")
         .setDescription("Show full warn history")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("clearstaffwarns")
         .setDescription("Remove all warns")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("stafffreeze")
         .setDescription("Freeze a staff member")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("hours").setDescription("Hours").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffunfreeze")
         .setDescription("Remove freeze")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffsuspend")
         .setDescription("Suspend staff member")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("hours").setDescription("Hours").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffunsuspend")
         .setDescription("Remove suspension")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffdemote")
         .setDescription("Demote staff member")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffblacklist")
         .setDescription("Blacklist member")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffunblacklist")
         .setDescription("Remove blacklist")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("staffprobation")
         .setDescription("Put member in probation")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("days").setDescription("Days").setRequired(true)),
- 
     new SlashCommandBuilder()
         .setName("topstaffwarns")
         .setDescription("Top staff warns"),
-
     new SlashCommandBuilder()
         .setName("removewarnhistory")
         .setDescription("Remove warn from history")
         .addUserOption(o => o.setName("member").setDescription("Member").setRequired(true))
         .addIntegerOption(o => o.setName("warnid").setDescription("Warn ID").setRequired(true))
         .addStringOption(o => o.setName("reason").setDescription("Reason").setRequired(true)),
-
 ].map(c => c.toJSON());
  
 // ===================== REGISTER =====================
@@ -496,23 +407,14 @@ client.once("ready", async () => {
         try {
             const allWarns = await StaffWarn.find();
             for (const data of allWarns) {
-                const before = data.warns.length;
-    for (const warn of data.warns) {
-
-        if (
-            warn.active &&
-            !warn.removed &&
-            warn.expireAt <= new Date()
-        ) {
-
-            warn.active = false;
-
-        }
-
-    }
-
-    await data.save();
-                if (before !== data.warns.length) {
+                let changed = false;
+                for (const warn of data.warns) {
+                    if (warn.active && !warn.removed && warn.expireAt <= new Date()) {
+                        warn.active = false;
+                        changed = true;
+                    }
+                }
+                if (changed) {
                     await data.save();
                     const guild = client.guilds.cache.get(data.guildId);
                     if (!guild) continue;
@@ -669,172 +571,122 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
     }
  
     // ===================== 4. WARNSTAFF =====================
-if (commandName === "warnstaff") {
-    if (!(await isBotAdmin(interaction)))
-        return interaction.reply({ content: "❌ No permission", ephemeral: true });
-
-    const memberUser = interaction.options.getUser("member");
-    const reason     = interaction.options.getString("reason");
-    const severity   = interaction.options.getInteger("severity");
-    const task       = interaction.options.getString("task") || "None";
-
-    let member;
-    try {
-        member = await interaction.guild.members.fetch(memberUser.id);
-    } catch {
-        return interaction.reply({ content: "❌ Member not found in this server", ephemeral: true });
-    }
-
-    const config = await StaffConfig.findOne({ guildId: interaction.guild.id });
-
-    let data = await StaffWarn.findOne({
-        guildId: interaction.guild.id,
-        userId: member.id
-    });
-
-    if (!data) {
-        data = await StaffWarn.create({
-            guildId: interaction.guild.id,
-            userId: member.id,
-            warns: []
-        });
-    }
-
-    // ❌ LIMITA MAX 6 WARN-URI
-    if (data.warns.length >= 6) {
-        return interaction.reply({
-            content: "❌ Nu se pot da mai mult de 6 warn-uri staff-urilor.",
-            ephemeral: true
-        });
-    }
-
-    // ➕ ADAUGĂ WARN
-    const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-
-    data.warns.push({
-
-    warnId: data.warns.length + 1,
-
-    reason,
-
-    severity,
-
-    task,
-
-    moderatorId: interaction.user.id,
-
-    expireAt: new Date(
-        Date.now() + 14 * 24 * 60 * 60 * 1000
-    ),
-
-    active: true,
-
-    removed: false
-
-    });
-
-    await data.save();
-
-    const warnCount = data.warns.length;
-
-    // ===================== CALCUL DIN SEVERITY =====================
-    let suspendHours = 0;
-    let freezeHours = 0;
-
-    switch (severity) {
-        case 1:
-            freezeHours = 1;
-            break;
-        case 2:
-            freezeHours = 3;
-            break;
-        case 3:
-            freezeHours = 6;
-            break;
-        case 4:
-            suspendHours = 6;
-            freezeHours = 12;
-            break;
-        case 5:
-            suspendHours = 12;
-            freezeHours = 24;
-            break;
-        case 6:
-            suspendHours = 24;
-            freezeHours = 36;
-            break;
-        case 7:
-            suspendHours = 48;
-            freezeHours = 48;
-            break;
-    }
-
-    // ===================== WARN COUNT BONUS =====================
-    suspendHours += (warnCount - 1) * 6;
-    freezeHours += (warnCount - 1) * 6;
-
-    let actionMsg = `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
-
-    // ===================== 5 WARN DM WARNING =====================
-    if (warnCount === 5) {
+    if (commandName === "warnstaff") {
+        if (!(await isBotAdmin(interaction)))
+            return interaction.reply({ content: "❌ No permission", ephemeral: true });
+ 
+        const memberUser = interaction.options.getUser("member");
+        const reason     = interaction.options.getString("reason");
+        const severity   = interaction.options.getInteger("severity");
+        const task       = interaction.options.getString("task") || "None";
+ 
+        let member;
         try {
-            await member.send(
+            member = await interaction.guild.members.fetch(memberUser.id);
+        } catch {
+            return interaction.reply({ content: "❌ Member not found in this server", ephemeral: true });
+        }
+ 
+        const config = await StaffConfig.findOne({ guildId: interaction.guild.id });
+ 
+        let data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: member.id });
+ 
+        if (!data) {
+            data = await StaffWarn.create({ guildId: interaction.guild.id, userId: member.id, warns: [] });
+        }
+ 
+        if (data.warns.length >= 6) {
+            return interaction.reply({ content: "❌ Nu se pot da mai mult de 6 warn-uri staff-urilor.", ephemeral: true });
+        }
+ 
+        const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+ 
+        data.warns.push({
+            warnId: data.warns.length + 1,
+            reason,
+            severity,
+            task,
+            moderatorId: interaction.user.id,
+            expireAt,
+            active: true,
+            removed: false
+        });
+ 
+        await data.save();
+ 
+        const warnCount = data.warns.length;
+ 
+        let suspendHours = 0;
+        let freezeHours = 0;
+ 
+        switch (severity) {
+            case 1: freezeHours = 1; break;
+            case 2: freezeHours = 3; break;
+            case 3: freezeHours = 6; break;
+            case 4: suspendHours = 6;  freezeHours = 12; break;
+            case 5: suspendHours = 12; freezeHours = 24; break;
+            case 6: suspendHours = 24; freezeHours = 36; break;
+            case 7: suspendHours = 48; freezeHours = 48; break;
+        }
+ 
+        suspendHours += (warnCount - 1) * 6;
+        freezeHours  += (warnCount - 1) * 6;
+ 
+        let actionMsg = `Suspend ${suspendHours}h + Freeze ${freezeHours}h`;
+ 
+        if (warnCount === 5) {
+            try {
+                await member.send(
 `⚠️ STAFF WARNING NOTICE
-
+ 
 You currently have 5/6 staff warns.
-
 Next warn may result in permanent staff removal.`
-            );
-        } catch {}
-    }
-
-    // ===================== 6 WARN REMOVE STAFF =====================
-    if (warnCount === 6) {
-        if (config?.staffRoleId)
-            await member.roles.remove(config.staffRoleId).catch(() => {});
-
+                );
+            } catch {}
+        }
+ 
+        if (warnCount === 6) {
+            if (config?.staffRoleId)
+                await member.roles.remove(config.staffRoleId).catch(() => {});
+ 
+            try {
+                await member.send(
+`🚫 STAFF REMOVAL
+ 
+You have reached 6/6 staff warns.
+Your staff role has been permanently removed.`
+                );
+            } catch {}
+ 
+            actionMsg = "REMOVE STAFF";
+        }
+ 
+        if (suspendHours > 0)
+            await member.timeout(suspendHours * 60 * 60 * 1000, reason).catch(() => {});
+ 
+        if (freezeHours > 0 && config?.freezeRoleId)
+            await member.roles.add(config.freezeRoleId).catch(() => {});
+ 
+        if (config?.suspendRoleId && suspendHours > 0)
+            await member.roles.add(config.suspendRoleId).catch(() => {});
+ 
         try {
             await member.send(
-`🚫 STAFF REMOVAL
-
-You have reached 6/6 staff warns.
-
-Your staff role has been permanently removed.`
-            );
-        } catch {}
-
-        actionMsg = "REMOVE STAFF";
-    }
-
-    // ===================== APPLY ACTIONS =====================
-    if (suspendHours > 0)
-        await member.timeout(suspendHours * 60 * 60 * 1000, reason).catch(() => {});
-
-    if (freezeHours > 0 && config?.freezeRoleId)
-        await member.roles.add(config.freezeRoleId).catch(() => {});
-
-    if (config?.suspendRoleId && suspendHours > 0)
-        await member.roles.add(config.suspendRoleId).catch(() => {});
-
-    // ===================== DM USER =====================
-    try {
-        await member.send(
 `⚠️ STAFF WARNING
-
+ 
 Reason: ${reason}
 Severity: ${severity}
 Task: ${task}
 Warns: ${warnCount}/6
 Action: ${actionMsg}
-
+ 
 Expires in 14 days.`
-        );
-    } catch {}
-
-    // ===================== LOG =====================
-    await sendLog(interaction.guild,
+            );
+        } catch {}
+ 
+        await sendLog(interaction.guild,
 `🚨 STAFF WARN
-
+ 
 Member: ${member.user.tag} (${member.id})
 Moderator: ${interaction.user.tag}
 Reason: ${reason}
@@ -843,39 +695,26 @@ Task: ${task}
 Warns: ${warnCount}/6
 Action: ${actionMsg}
 Time: <t:${Math.floor(Date.now() / 1000)}:F>`
-    );
-
-    const expireTimestamp =
-    Math.floor(expireAt.getTime() / 1000);
-
-    return interaction.reply(
-
-    `⚠️ **STAFF WARN**
-
-    👤 Member: <@${member.id}> (${member.user.tag})
-    👮 Moderator: <@${interaction.user.id}> (${interaction.user.tag})
-
-    📝 Reason:
-    ${reason}
-
-    📊 Warn Count:
-        ${warnCount}/6
-
-    🔴 Severity:
-        ${severity}
-
-    📋 Task:
-        ${task}
-
-    ⚙️ Action:
-        ${actionMsg}
-
-    ⏰ Expires:
-        <t:${expireTimestamp}:F>
-        (<t:${expireTimestamp}:R>)`
-
-    );
-}
+        );
+ 
+        const expireTimestamp = Math.floor(expireAt.getTime() / 1000);
+ 
+        return interaction.reply(
+`⚠️ **STAFF WARN**
+ 
+👤 Member: <@${member.id}> (${member.user.tag})
+👮 Moderator: <@${interaction.user.id}> (${interaction.user.tag})
+ 
+📝 Reason: ${reason}
+ 
+📊 Warn Count: ${warnCount}/6
+🔴 Severity: ${severity}
+📋 Task: ${task}
+⚙️ Action: ${actionMsg}
+ 
+⏰ Expires: <t:${expireTimestamp}:F> (<t:${expireTimestamp}:R>)`
+        );
+    }
  
     // ===================== 5. DENYROLE =====================
     if (commandName === "denyrole") {
@@ -973,7 +812,6 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         const category   = interaction.options.getChannel("category");
         const mode       = interaction.options.getString("mode");
  
-        // Fix: fetch GuildMember din User
         let member;
         try {
             member = await interaction.guild.members.fetch(memberUser.id);
@@ -1202,45 +1040,53 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
     }
  
     // ===================== 15. REMOVEWARNSTAFF =====================
+    // FIX: variabila `warn` era nedefinita in log; acum folosim `removedWarn`
     if (commandName === "removewarnstaff") {
         if (!(await isBotAdmin(interaction)))
             return interaction.reply({ content: "❌ No permission", ephemeral: true });
  
-        const memberUser = interaction.options.getUser("member");
-        const warnNum    = interaction.options.getInteger("warn");
-        const removeReason =interaction.options.getString("reason");
+        const memberUser   = interaction.options.getUser("member");
+        const warnNum      = interaction.options.getInteger("warn");
+        const removeReason = interaction.options.getString("reason");
  
         const data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
  
         if (!data || data.warns.length === 0)
-            return interaction.reply("❌ No warns found for this member");
+            return interaction.reply({ content: "❌ No warns found for this member", ephemeral: true });
  
         if (warnNum < 1 || warnNum > data.warns.length)
-            return interaction.reply(`❌ Invalid warn number. This member has **${data.warns.length}** warn(s).`);
+            return interaction.reply({
+                content: `❌ Invalid warn number. This member has **${data.warns.length}** warn(s).`,
+                ephemeral: true
+            });
  
-        const removed = data.warns[warnNum - 1];
-
-        removed.active = false;
-        removed.removed = true;
-        removed.removedBy = interaction.user.id;
-        removed.removedAt = new Date();
-        removed.removeReason = interaction.options.getString("reason");
-
-         await data.save();// Fix: sterge warn-ul corect dupa index
+        // ✅ FIX: referinta corecta la warn-ul ales
+        const removedWarn = data.warns[warnNum - 1];
+ 
+        removedWarn.active       = false;
+        removedWarn.removed      = true;
+        removedWarn.removedBy    = interaction.user.id;
+        removedWarn.removedAt    = new Date();
+        removedWarn.removeReason = removeReason;
+ 
+        await data.save();
+ 
+        const activeLeft = data.warns.filter(w => w.active && !w.removed).length;
  
         await sendLog(interaction.guild,
 `🗑 STAFF WARN REMOVED
  
 Member: ${memberUser.tag} (${memberUser.id})
 Warn #${warnNum} removed
-Original reason: ${warn.reason}
+Original reason: ${removedWarn.reason}
 Remove reason: ${removeReason}
 Removed by: ${interaction.user.tag} (${interaction.user.id})
-Removed by: ${interaction.user.tag}
 Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         );
  
-        return interaction.reply(`✅ Warn **#${warnNum}** removed from **${memberUser.tag}** (${data.warns.length} remaining)`);
+        return interaction.reply(
+            `✅ Warn **#${warnNum}** removed from **${memberUser.tag}** (${activeLeft} active warn(s) remaining)`
+        );
     }
  
     // ===================== 16. STAFFINFO =====================
@@ -1253,44 +1099,22 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         const data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
  
         if (!data || data.warns.length === 0)
-            return interaction.reply(`✅ **${memberUser.tag}** has no active warns`);
+            return interaction.reply(`✅ **${memberUser.tag}** has no warns`);
  
         let txt = `📋 **Staff warns for ${memberUser.tag}** (${data.warns.length}/6)\n\n`;
-        data.warns.forEach((w, i) => {
-
-        let status = "🟢 Active";
-
-     if (w.removed)
-            status = "🔴 Removed";
-
-        else if (!w.active)
-            status = "🟡 Expired";
-
-     txt +=
-    `#${w.warnId}
-
-    Status: ${status}
-    Reason: ${w.reason}
-    Severity: ${w.severity}
-    Task: ${w.task}
-    Moderator: <@${w.moderatorId}>
-    Expires: <t:${Math.floor(w.expireAt.getTime()/1000)}:R>
-    `;
-
-        if (w.removed) {
-
-            txt +=
-    `Removed by: <@${w.removedBy}>
-    Remove reason: ${w.removeReason}
-    Removed at: <t:${Math.floor(w.removedAt.getTime()/1000)}:F>
-
-    `;
-
-        }
-
-        txt += "\n";
-
-    });
+        data.warns.forEach((w) => {
+            let status = "🟢 Active";
+            if (w.removed)      status = "🔴 Removed";
+            else if (!w.active) status = "🟡 Expired";
+ 
+            txt += `**#${w.warnId}**\nStatus: ${status}\nReason: ${w.reason}\nSeverity: ${w.severity}\nTask: ${w.task}\nModerator: <@${w.moderatorId}>\nExpires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>\n`;
+ 
+            if (w.removed) {
+                txt += `Removed by: <@${w.removedBy}>\nRemove reason: ${w.removeReason}\nRemoved at: <t:${Math.floor(w.removedAt.getTime() / 1000)}:F>\n`;
+            }
+ 
+            txt += "\n";
+        });
  
         return interaction.reply(txt);
     }
@@ -1308,10 +1132,10 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             return interaction.reply(`✅ **${memberUser.tag}** has no active warns`);
  
         const now = new Date();
-        const activeWarns = data.warns.filter(w => w.expireAt > now);
+        const activeWarns = data.warns.filter(w => w.active && !w.removed && w.expireAt > now);
  
         if (activeWarns.length === 0)
-            return interaction.reply(`✅ **${memberUser.tag}** has no active warns (all expired)`);
+            return interaction.reply(`✅ **${memberUser.tag}** has no active warns (all expired or removed)`);
  
         let txt = `📋 **Active warns for ${memberUser.tag}** (${activeWarns.length} active)\n\n`;
         activeWarns.forEach((w, i) => {
@@ -1360,6 +1184,7 @@ Expires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>
     }
  
     // ===================== 19. CLEARSTAFFWARNS =====================
+    // FIX: sterge toate warn-urile (active + istorice) si salveaza corect
     if (commandName === "clearstaffwarns") {
         if (!(await isBotAdmin(interaction)))
             return interaction.reply({ content: "❌ No permission", ephemeral: true });
@@ -1369,9 +1194,11 @@ Expires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>
         const data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
  
         if (!data || data.warns.length === 0)
-            return interaction.reply("❌ No warns found for this member");
+            return interaction.reply({ content: "❌ No warns found for this member", ephemeral: true });
  
         const count = data.warns.length;
+ 
+        // ✅ FIX: golim array-ul si salvam
         data.warns = [];
         await data.save();
  
@@ -1561,14 +1388,12 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         if (config?.suspendRoleId)
             await member.roles.remove(config.suspendRoleId).catch(() => {});
  
-        // Restore saved roles
         if (suspendData.savedRoles?.length) {
             for (const roleId of suspendData.savedRoles) {
                 await member.roles.add(roleId).catch(() => {});
             }
         }
  
-        // Remove timeout if active
         await member.timeout(null).catch(() => {});
  
         try { await member.send("✅ Your suspension has been removed."); } catch {}
@@ -1605,12 +1430,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             .filter(r => r.id !== interaction.guild.id)
             .map(r => r.id);
  
-        await StaffDemote.create({
-            guildId:  interaction.guild.id,
-            userId:   member.id,
-            oldRoles,
-            reason
-        });
+        await StaffDemote.create({ guildId: interaction.guild.id, userId: member.id, oldRoles, reason });
  
         if (config?.staffRoleId)
             await member.roles.remove(config.staffRoleId).catch(() => {});
@@ -1619,12 +1439,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             await member.roles.add(config.demoteRoleId).catch(() => {});
  
         try {
-            await member.send(
-`📉 STAFF DEMOTION
- 
-You have been demoted.
-Reason: ${reason}`
-            );
+            await member.send(`📉 STAFF DEMOTION\n\nYou have been demoted.\nReason: ${reason}`);
         } catch {}
  
         await sendLog(interaction.guild,
@@ -1647,20 +1462,12 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         const memberUser = interaction.options.getUser("member");
         const reason     = interaction.options.getString("reason");
  
-        const existing = await StaffBlacklist.findOne({
-            guildId: interaction.guild.id,
-            userId:  memberUser.id
-        });
+        const existing = await StaffBlacklist.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
  
         if (existing)
             return interaction.reply({ content: "❌ This member is already blacklisted", ephemeral: true });
  
-        await StaffBlacklist.create({
-            guildId:     interaction.guild.id,
-            userId:      memberUser.id,
-            reason,
-            moderatorId: interaction.user.id
-        });
+        await StaffBlacklist.create({ guildId: interaction.guild.id, userId: memberUser.id, reason, moderatorId: interaction.user.id });
  
         let member;
         try {
@@ -1670,12 +1477,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         } catch {}
  
         try {
-            await memberUser.send(
-`🚫 STAFF BLACKLIST
- 
-You have been blacklisted from staff.
-Reason: ${reason}`
-            );
+            await memberUser.send(`🚫 STAFF BLACKLIST\n\nYou have been blacklisted from staff.\nReason: ${reason}`);
         } catch {}
  
         await sendLog(interaction.guild,
@@ -1697,10 +1499,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         const memberUser = interaction.options.getUser("member");
  
-        const deleted = await StaffBlacklist.findOneAndDelete({
-            guildId: interaction.guild.id,
-            userId:  memberUser.id
-        });
+        const deleted = await StaffBlacklist.findOneAndDelete({ guildId: interaction.guild.id, userId: memberUser.id });
  
         if (!deleted)
             return interaction.reply({ content: "❌ This member is not blacklisted", ephemeral: true });
@@ -1728,16 +1527,8 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
  
-        await StaffProbation.findOneAndDelete({
-            guildId: interaction.guild.id,
-            userId:  memberUser.id
-        });
- 
-        await StaffProbation.create({
-            guildId:   interaction.guild.id,
-            userId:    memberUser.id,
-            expiresAt
-        });
+        await StaffProbation.findOneAndDelete({ guildId: interaction.guild.id, userId: memberUser.id });
+        await StaffProbation.create({ guildId: interaction.guild.id, userId: memberUser.id, expiresAt });
  
         try {
             await memberUser.send(
@@ -1773,11 +1564,10 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         const now = new Date();
  
-        // Sorteaza dupa numarul de warn-uri active
         const sorted = allWarns
             .map(d => ({
                 userId: d.userId,
-                active: d.warns.filter(w => w.expireAt > now).length,
+                active: d.warns.filter(w => w.active && !w.removed && w.expireAt > now).length,
                 total:  d.warns.length
             }))
             .filter(d => d.active > 0)
@@ -1794,82 +1584,46 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
  
         return interaction.reply(txt);
     }
-
+ 
+    // ===================== 29. REMOVEWARNHISTORY =====================
     if (commandName === "removewarnhistory") {
-
         if (!(await isBotAdmin(interaction)))
-         return interaction.reply({
-             content: "❌ No permission",
-             ephemeral: true
-            });
-
-        const memberUser =
-         interaction.options.getUser("member");
-
-        const warnId =
-          interaction.options.getInteger("warnid");
-
-     const reason =
-         interaction.options.getString("reason");
-
-     const data =
-         await StaffWarn.findOne({
-
-             guildId: interaction.guild.id,
-                userId: memberUser.id
-
-            });
-
+            return interaction.reply({ content: "❌ No permission", ephemeral: true });
+ 
+        const memberUser = interaction.options.getUser("member");
+        const warnId     = interaction.options.getInteger("warnid");
+        const reason     = interaction.options.getString("reason");
+ 
+        const data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: memberUser.id });
+ 
         if (!data)
-         return interaction.reply("❌ No history");
-
-        const warn =
-         data.warns.find(
-              w => w.warnId === warnId
-         );
-
+            return interaction.reply({ content: "❌ No history found for this member", ephemeral: true });
+ 
+        const warn = data.warns.find(w => w.warnId === warnId);
+ 
         if (!warn)
-         return interaction.reply(
-             "❌ Warn not found"
-            );
-
-     warn.active = false;
-
-        warn.removed = true;
-
-     warn.removedBy =
-         interaction.user.id;
-
-     warn.removedAt =
-            new Date();
-
-     warn.removeReason =
-            reason;
-
+            return interaction.reply({ content: `❌ Warn ID **${warnId}** not found`, ephemeral: true });
+ 
+        warn.active       = false;
+        warn.removed      = true;
+        warn.removedBy    = interaction.user.id;
+        warn.removedAt    = new Date();
+        warn.removeReason = reason;
+ 
         await data.save();
-
-     await sendLog(
-          interaction.guild,
-
-    `🗑 WARN HISTORY REMOVED
-
-    Member:
-    ${memberUser.tag}
-
-    Warn ID:
-    ${warnId}
-
-    Removed by:
-    ${interaction.user.tag}
-
-    Reason:
-    ${reason}`
-    );
-
-        return interaction.reply(
-    `✅ Warn ID ${warnId} removed`
-    );
-
+ 
+        await sendLog(interaction.guild,
+`🗑 WARN HISTORY REMOVED
+ 
+Member: ${memberUser.tag} (${memberUser.id})
+Warn ID: ${warnId}
+Original reason: ${warn.reason}
+Removed by: ${interaction.user.tag} (${interaction.user.id})
+Remove reason: ${reason}
+Time: <t:${Math.floor(Date.now() / 1000)}:F>`
+        );
+ 
+        return interaction.reply(`✅ Warn ID **${warnId}** marked as removed from history`);
     }
 });
  
