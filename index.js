@@ -82,12 +82,48 @@ const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
 }));
  
 const StaffWarn = mongoose.model("StaffWarn", staffWarnSchema);
+
+const staffHierarchy = [
+
+"Owner",
+"Founder",
+"Co-Owner",
+"Co-Founder",
+"Manager General",
+"Sub-Manager General",
+"Supervizor",
+"ADMIN Manager",
+"Mod Manager",
+"⭐",
+"HR Manager",
+"Public Relation",
+"Advanced ADMIN",
+"Advanced Moderator",
+"Event Manager",
+"Event Coordonater",
+"Media Manager",
+"Tester Manager",
+"Rute Tester Leader",
+"Helper Leader",
+"ADMIN",
+"Moderator",
+"Event Team",
+"Convoy-Helper",
+"Media Team",
+"Rute Tester",
+"Tester",
+"Helper"
+
+];
  
 const StaffFreeze = mongoose.model("StaffFreeze", new mongoose.Schema({
-    guildId:     String,
-    userId:      String,
-    reason:      String,
-    expiresAt:   Date,
+    guildId: String,
+    userId: String,
+    reason: String,
+    expiresAt: Date,
+
+    savedRoles: [String],
+
     permissions: Object
 }));
  
@@ -153,16 +189,106 @@ async function freezeMember(member, durationMs, reason) {
     if (!config) return;
  
     await StaffFreeze.findOneAndDelete({ guildId: member.guild.id, userId: member.id });
-    await StaffFreeze.create({
-        guildId:   member.guild.id,
-        userId:    member.id,
-        reason,
-        expiresAt: new Date(Date.now() + durationMs),
-        permissions: member.roles.cache.filter(r => r.id !== member.guild.id).map(r => r.id)
-    });
- 
-    if (config.staffRoleId)  await member.roles.remove(config.staffRoleId).catch(() => {});
-    if (config.freezeRoleId) await member.roles.add(config.freezeRoleId).catch(() => {});
+   const savedRoles = member.roles.cache
+.filter(r => r.id !== member.guild.id)
+.map(r => r.id);
+
+await StaffFreeze.create({
+
+    guildId: member.guild.id,
+
+    userId: member.id,
+
+    reason,
+
+    expiresAt: new Date(
+        Date.now() + durationMs
+    ),
+
+    savedRoles,
+
+    permissions: {}
+
+});
+
+    const keepRoles=[];
+
+if(config.memberRoleId)
+keepRoles.push(config.memberRoleId);
+
+if(config.verifyRoleId)
+keepRoles.push(config.verifyRoleId);
+
+await member.roles.set(keepRoles);
+
+if(config.freezeRoleId)
+await member.roles.add(config.freezeRoleId);
+
+const staffHierarchy = [
+
+"Owner",
+"Founder",
+"Co-Owner",
+"Co-Founder",
+"Manager General",
+"Sub-Manager General",
+"Supervizor",
+"ADMIN Manager",
+"Mod Manager",
+"⭐",
+"HR Manager",
+"Public Relation",
+"Advanced ADMIN",
+"Advanced Moderator",
+"Event Manager",
+"Event Coordonater",
+"Media Manager",
+"Tester Manager",
+"Rute Tester Leader",
+"Helper Leader",
+"ADMIN",
+"Moderator",
+"Event Team",
+"Convoy-Helper",
+"Media Team",
+"Rute Tester",
+"Tester",
+"Helper"
+
+];
+
+const highestRoleName =
+staffHierarchy.find(roleName =>
+member.roles.cache.some(r => r.name === roleName)
+);
+
+const highestRole =
+member.guild.roles.cache.find(
+r => r.name === highestRoleName
+);
+
+for(const channel of member.guild.channels.cache.values()){
+
+const overwrite=
+channel.permissionOverwrites.cache.get(
+highestRole.id
+);
+
+if(!overwrite) continue;
+
+await channel.permissionOverwrites.edit(
+member,
+{
+ViewChannel:
+overwrite.allow.has("ViewChannel"),
+
+Connect:
+overwrite.allow.has("Connect")
+}
+).catch(()=>{});
+
+}
+
 }
  
 async function suspendMember(member, durationMs, reason) {
@@ -1270,7 +1396,7 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
     }
  
     // ===================== 21. STAFFUNFREEZE =====================
-    if (commandName === "staffunfreeze") {
+     if (commandName === "staffunfreeze") {
         if (!(await isBotAdmin(interaction)))
             return interaction.reply({ content: "❌ No permission", ephemeral: true });
  
@@ -1293,11 +1419,28 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         if (!freezeData)
             return interaction.reply({ content: "❌ This member is not frozen", ephemeral: true });
  
-        if (config?.freezeRoleId)
-            await member.roles.remove(config.freezeRoleId).catch(() => {});
- 
-        if (config?.staffRoleId)
-            await member.roles.add(config.staffRoleId).catch(() => {});
+if (config?.freezeRoleId)
+    await member.roles.remove(
+        config.freezeRoleId
+    ).catch(() => {});
+
+// șterge overwrite-urile făcute la freeze
+for (const channel of interaction.guild.channels.cache.values()) {
+
+    await channel.permissionOverwrites
+    .delete(member.id)
+    .catch(() => {});
+
+}
+
+// pune toate rolurile înapoi
+if (freezeData.savedRoles?.length) {
+
+    await member.roles.set(
+        freezeData.savedRoles
+    ).catch(() => {});
+
+}
  
         try { await member.send("✅ Your freeze has been removed."); } catch {}
  
