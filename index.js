@@ -550,9 +550,14 @@ client.once("ready", async () => {
                 let changed = false;
                 for (const warn of data.warns) {
                     if (warn.active && !warn.removed && warn.expireAt <= new Date()) {
-                        warn.active = false;
-                        changed = true;
-                    }
+    warn.active = false;
+
+    if (data.warnCount > 0)
+        data.warnCount--;
+
+    data.warnCountExp++;
+    changed = true;
+}
                 }
                 if (changed) {
                     await data.save();
@@ -742,19 +747,21 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         const expireAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
  
         data.warns.push({
-            warnId: data.warns.length + 1,
-            reason,
-            severity,
-            task,
-            moderatorId: interaction.user.id,
-            expireAt,
-            active: true,
-            removed: false
-        });
- 
-        await data.save();
- 
-        const warnCount = data.warns.length;
+    warnId: data.warns.length + 1,
+    reason,
+    severity,
+    task,
+    moderatorId: interaction.user.id,
+    expireAt,
+    active: true,
+    removed: false
+});
+
+data.warnCount++;
+
+await data.save();
+
+const warnCount = data.warnCount;
  
         let suspendHours = 0;
         let freezeHours = 0;
@@ -1204,10 +1211,22 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         const removedWarn = data.warns[warnNum - 1];
  
         removedWarn.active       = false;
-        removedWarn.removed      = true;
-        removedWarn.removedBy    = interaction.user.id;
-        removedWarn.removedAt    = new Date();
-        removedWarn.removeReason = removeReason;
+removedWarn.removed      = true;
+removedWarn.removedBy    = interaction.user.id;
+removedWarn.removedAt    = new Date();
+removedWarn.removeReason = removeReason;
+
+if (data.warnCount > 0)
+    data.warnCount--;
+
+data.warnCountRm++;
+
+await data.save();
+        if (removedWarn.active) {
+    data.warnCount--;
+}
+
+data.warnCountRm++;
  
         await data.save();
  
@@ -1277,7 +1296,14 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         if (activeWarns.length === 0)
             return interaction.reply(`✅ **${memberUser.tag}** has no active warns (all expired or removed)`);
  
-        let txt = `📋 **Active warns for ${memberUser.tag}** (${activeWarns.length} active)\n\n`;
+        let txt =
+`📋 **Active warns for ${memberUser.tag}**
+
+Active: ${data.warnCount}
+Expired: ${data.warnCountExp}
+Removed: ${data.warnCountRm}
+
+`;
         activeWarns.forEach((w, i) => {
             txt +=
 `**#${i + 1}**
@@ -1305,7 +1331,15 @@ Expires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>
             return interaction.reply(`✅ **${memberUser.tag}** has no warn history`);
  
         const now = new Date();
-        let txt = `📜 **Full warn history for ${memberUser.tag}** (${data.warns.length} total)\n\n`;
+        let txt =
+`📜 **Full warn history for ${memberUser.tag}**
+
+Active: ${data.warnCount}
+Expired: ${data.warnCountExp}
+Removed: ${data.warnCountRm}
+Total: ${data.warns.length}
+
+`;
         data.warns.forEach((w, i) => {
             const expired = w.expireAt <= now;
             txt +=
@@ -1339,8 +1373,13 @@ Expires: <t:${Math.floor(w.expireAt.getTime() / 1000)}:R>
         const count = data.warns.length;
  
         // ✅ FIX: golim array-ul si salvam
-        data.warns = [];
-        await data.save();
+data.warns = [];
+
+data.warnCount = 0;
+data.warnCountExp = 0;
+data.warnCountRm = 0;
+
+await data.save();
  
         await sendLog(interaction.guild,
 `🧹 STAFF WARNS CLEARED
@@ -1762,12 +1801,17 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
             return interaction.reply({ content: `❌ Warn ID **${warnId}** not found`, ephemeral: true });
  
         warn.active       = false;
-        warn.removed      = true;
-        warn.removedBy    = interaction.user.id;
-        warn.removedAt    = new Date();
-        warn.removeReason = reason;
- 
-        await data.save();
+warn.removed      = true;
+warn.removedBy    = interaction.user.id;
+warn.removedAt    = new Date();
+warn.removeReason = reason;
+
+if (data.warnCount > 0)
+    data.warnCount--;
+
+data.warnCountRm++;
+
+await data.save();
  
         await sendLog(interaction.guild,
 `🗑 WARN HISTORY REMOVED
