@@ -47,6 +47,22 @@ const GuildConfig = mongoose.model("GuildConfig", new mongoose.Schema({
 const staffWarnSchema = new mongoose.Schema({
     guildId: String,
     userId: String,
+
+    warnCount: {
+        type: Number,
+        default: 0
+    },
+
+    warnCountExp: {
+        type: Number,
+        default: 0
+    },
+
+    warnCountRm: {
+        type: Number,
+        default: 0
+    },
+
     warns: [
         {
             warnId: Number,
@@ -737,7 +753,14 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
         let data = await StaffWarn.findOne({ guildId: interaction.guild.id, userId: member.id });
  
         if (!data) {
-            data = await StaffWarn.create({ guildId: interaction.guild.id, userId: member.id, warns: [] });
+            data = await StaffWarn.create({
+    guildId: interaction.guild.id,
+    userId: member.id,
+    warnCount: 0,
+    warnCountExp: 0,
+    warnCountRm: 0,
+    warns: []
+});
         }
  
         if (data.warns.length >= 6) {
@@ -756,6 +779,10 @@ Time: <t:${Math.floor(Date.now() / 1000)}:F>`
     active: true,
     removed: false
 });
+
+if (data.warnCount == null) data.warnCount = 0;
+if (data.warnCountExp == null) data.warnCountExp = 0;
+if (data.warnCountRm == null) data.warnCountRm = 0;
 
 data.warnCount++;
 
@@ -1222,13 +1249,6 @@ if (data.warnCount > 0)
 data.warnCountRm++;
 
 await data.save();
-        if (removedWarn.active) {
-    data.warnCount--;
-}
-
-data.warnCountRm++;
- 
-        await data.save();
  
         const activeLeft = data.warns.filter(w => w.active && !w.removed).length;
  
