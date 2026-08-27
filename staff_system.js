@@ -218,6 +218,7 @@ const GRAD2_COMMANDS = new Set([
 // Doar Bot Admin
 const BOT_ADMIN_ONLY = new Set([
     "setmodrol",
+    "viewmodrole",
 
     "setstafflog",
     "setstaffrole",
@@ -5729,6 +5730,405 @@ async function handleSetBlacklistChannel(interaction) {
 }
 
 // =====================================================
+// /SETMODROL
+// DOAR BOT ADMIN
+// =====================================================
+
+async function handleSetModRole(interaction) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "setmodrol"
+        ))
+    )
+        return true;
+
+
+    const grad =
+        interaction.options.getInteger(
+            "grad"
+        );
+
+    const role =
+        interaction.options.getRole(
+            "role"
+        );
+
+
+    let config =
+        await ModeratorConfig.findOne({
+            guildId: interaction.guild.id
+        });
+
+
+    if (!config) {
+
+        config =
+            await ModeratorConfig.create({
+                guildId: interaction.guild.id
+            });
+
+    }
+
+
+    if (grad === 1) {
+
+        config.grad1RoleId =
+            role.id;
+
+    }
+
+    else if (grad === 2) {
+
+        config.grad2RoleId =
+            role.id;
+
+    }
+
+    else {
+
+        await interaction.reply({
+            content:
+                "❌ Grad invalid.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    await config.save();
+
+
+    await sendStaffLog(
+        interaction.guild,
+
+`⚙️ MODERATOR ROLE SET
+
+Grad: ${grad}
+Role: ${role} (${role.id})
+
+Set by: ${interaction.user} (${interaction.user.id})
+
+Time: <t:${Math.floor(
+    Date.now() / 1000
+)}:F>`
+    );
+
+
+    await interaction.reply(
+        `✅ Rolul ${role} a fost setat pentru **Moderator Grad ${grad}**.`
+    );
+
+
+    return true;
+}
+
+// =====================================================
+// /VIEWMODROLE
+// DOAR BOT ADMIN
+// =====================================================
+
+async function handleViewModRole(interaction) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "viewmodrole"
+        ))
+    )
+        return true;
+
+
+    const config =
+        await ModeratorConfig.findOne({
+            guildId: interaction.guild.id
+        });
+
+
+    const grad1 =
+        config?.grad1RoleId
+            ? `<@&${config.grad1RoleId}>`
+            : "Nesetat";
+
+    const grad2 =
+        config?.grad2RoleId
+            ? `<@&${config.grad2RoleId}>`
+            : "Nesetat";
+
+
+    await interaction.reply(
+`🛡️ **ROLURI MODERATOR**
+
+**GRAD 1**
+${grad1}
+
+━━━━━━━━━━━━━━━━━━━━
+
+**GRAD 2**
+${grad2}`
+    );
+
+
+    return true;
+}
+
+// =====================================================
+// /VIEWMODERATORS
+// PUBLIC
+// =====================================================
+
+async function handleViewModerators(interaction) {
+
+    const config =
+        await ModeratorConfig.findOne({
+            guildId: interaction.guild.id
+        });
+
+
+    if (
+        !config?.grad1RoleId &&
+        !config?.grad2RoleId
+    ) {
+
+        await interaction.reply(
+            "❌ Rolurile de moderator nu sunt configurate."
+        );
+
+        return true;
+    }
+
+
+    await interaction.guild.members.fetch();
+
+
+    const grad1Members =
+        config.grad1RoleId
+            ? interaction.guild.members.cache.filter(
+                member =>
+                    member.roles.cache.has(
+                        config.grad1RoleId
+                    )
+            )
+            : new Map();
+
+
+    const grad2Members =
+        config.grad2RoleId
+            ? interaction.guild.members.cache.filter(
+                member =>
+                    member.roles.cache.has(
+                        config.grad2RoleId
+                    )
+            )
+            : new Map();
+
+
+    let text =
+`🛡️ **MODERATORI**
+
+**GRAD 1**
+`;
+
+
+    if (grad1Members.size === 0) {
+
+        text +=
+            "Niciun moderator.\n";
+
+    }
+
+    else {
+
+        let index = 1;
+
+        for (
+            const member
+            of grad1Members.values()
+        ) {
+
+            text +=
+                `**${index}.** <@${member.id}>\n`;
+
+            index++;
+
+        }
+
+    }
+
+
+    text +=
+`
+━━━━━━━━━━━━━━━━━━━━
+
+**GRAD 2**
+`;
+
+
+    if (grad2Members.size === 0) {
+
+        text +=
+            "Niciun moderator.";
+
+    }
+
+    else {
+
+        let index = 1;
+
+        for (
+            const member
+            of grad2Members.values()
+        ) {
+
+            text +=
+                `**${index}.** <@${member.id}>\n`;
+
+            index++;
+
+        }
+
+    }
+
+
+    await interaction.reply(text);
+
+    return true;
+}
+
+// =====================================================
+// /VIEWCOMMANDS
+// Arată doar comenzile la care utilizatorul are acces
+// =====================================================
+
+async function handleViewCommands(interaction) {
+
+    const botAdmin =
+        await isBotAdmin(interaction);
+
+    const level =
+        await getModeratorLevel(interaction);
+
+
+    const publicCommands = [
+        "viewmoderators"
+    ];
+
+
+    let allowedCommands =
+        [...publicCommands];
+
+
+    if (level >= 1) {
+
+        allowedCommands.push(
+            ...GRAD1_COMMANDS
+        );
+
+    }
+
+
+    if (level >= 2) {
+
+        allowedCommands.push(
+            ...GRAD2_COMMANDS
+        );
+
+    }
+
+
+    if (botAdmin) {
+
+        allowedCommands.push(
+            ...GRAD1_COMMANDS,
+            ...GRAD2_COMMANDS,
+            ...BOT_ADMIN_ONLY
+        );
+
+    }
+
+
+    // eliminăm duplicatele
+    allowedCommands =
+        [...new Set(
+            allowedCommands
+        )];
+
+
+    // viewcommands trebuie să apară mereu
+    if (
+        !allowedCommands.includes(
+            "viewcommands"
+        )
+    ) {
+
+        allowedCommands.push(
+            "viewcommands"
+        );
+
+    }
+
+
+    allowedCommands.sort();
+
+
+    let text =
+`📋 **COMENZILE TALE DISPONIBILE**
+
+`;
+
+
+    for (
+        const command
+        of allowedCommands
+    ) {
+
+        text +=
+            `• \`/${command}\`\n`;
+
+    }
+
+
+    if (botAdmin) {
+
+        text +=
+`\n🛡️ Nivel acces: **Bot Admin**`;
+
+    }
+
+    else if (level >= 2) {
+
+        text +=
+`\n🔴 Nivel acces: **Moderator Grad 2**`;
+
+    }
+
+    else if (level >= 1) {
+
+        text +=
+`\n🟡 Nivel acces: **Moderator Grad 1**`;
+
+    }
+
+    else {
+
+        text +=
+`\n⚪ Nivel acces: **Public**`;
+
+    }
+
+
+    await interaction.reply({
+        content: text,
+        ephemeral: true
+    });
+
+
+    return true;
+}
+
+// =====================================================
 // SLASH COMMANDS
 // =====================================================
 
@@ -5751,6 +6151,14 @@ const commands = [
                 .setDescription("Rol moderator")
                 .setRequired(true)
         ),
+
+    new SlashCommandBuilder()
+    .setName("viewmodrole")
+    .setDescription("Vezi rolurile configurate pentru Moderator Grad 1 și 2"),
+
+new SlashCommandBuilder()
+    .setName("viewmoderators")
+    .setDescription("Vezi lista moderatorilor Grad 1 și Grad 2"),
 
     new SlashCommandBuilder()
         .setName("warnstaff")
@@ -6188,6 +6596,10 @@ const commands = [
         ),
 
     new SlashCommandBuilder()
+        .setName("viewcommands")
+        .setDescription("Vezi comenzile la care ai acces"),
+
+    new SlashCommandBuilder()
         .setName("staffsecurity")
         .setDescription("Setează Security Level")
         .addUserOption(o =>
@@ -6216,6 +6628,18 @@ async function handleInteraction(interaction) {
 
     const commandName =
         interaction.commandName;
+
+    if (commandName === "viewcommands")
+        return handleViewCommands(interaction);
+
+    if (commandName === "setmodrol")
+        return handleSetModRole(interaction);
+
+    if (commandName === "viewmodrole")
+        return handleViewModRole(interaction);
+
+    if (commandName === "viewmoderators")
+        return handleViewModerators(interaction);
 
 
     if (commandName === "warnstaff")
