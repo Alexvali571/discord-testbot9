@@ -224,6 +224,7 @@ const BOT_ADMIN_ONLY = new Set([
     "setstaffrole",
     "setmemberrole",
     "setverifyrole",
+    "setstaffwarnlog",
 
     "setfreezerole",
     "setsuspendrole",
@@ -529,6 +530,56 @@ function calculateWarnAction(
         suspendHours,
         freezeHours
     };
+}
+
+async function sendStaffWarnLog(
+    guild,
+    message
+) {
+
+    const config =
+        await StaffConfig.findOne({
+            guildId: guild.id
+        });
+
+
+    if (!config)
+        return;
+
+
+    // Prioritate:
+    // 1. canalul setat prin /setstaffwarnlog
+    // 2. dacă nu există, canalul general /setstafflog
+
+    const channelId =
+        config.warnLogChannelId ||
+        config.logChannelId;
+
+
+    if (!channelId)
+        return;
+
+
+    const channel =
+        guild.channels.cache.get(
+            channelId
+        );
+
+
+    if (!channel)
+        return;
+
+
+    await channel.send(message)
+        .catch(error => {
+
+            console.error(
+                "[STAFF WARN LOG]",
+                error
+            );
+
+        });
+
 }
 
 
@@ -909,7 +960,7 @@ Expires in 14 days.`
     catch {}
 
 
-    await sendStaffLog(
+    await sendStaffWarnLog(
         interaction.guild,
 
 `🚨 STAFF WARN
@@ -6128,6 +6179,53 @@ async function handleViewCommands(interaction) {
     return true;
 }
 
+async function handleSetStaffWarnLog(
+    interaction
+) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "setstaffwarnlog"
+        ))
+    )
+        return true;
+
+
+    const channel =
+        interaction.options.getChannel(
+            "channel"
+        );
+
+
+    await StaffConfig.findOneAndUpdate(
+        {
+            guildId:
+                interaction.guild.id
+        },
+        {
+            $set: {
+                warnLogChannelId:
+                    channel.id
+            }
+        },
+        {
+            upsert: true,
+            new: true
+        }
+    );
+
+
+    await interaction.reply({
+        content:
+            `✅ Staff Warn Log a fost setat pe ${channel}.`,
+        ephemeral: true
+    });
+
+
+    return true;
+}
+
 // =====================================================
 // SLASH COMMANDS
 // =====================================================
@@ -6285,6 +6383,15 @@ new SlashCommandBuilder()
                 .setDescription("Motiv")
                 .setRequired(true)
         ),
+
+    new SlashCommandBuilder()
+    .setName("setstaffwarnlog")
+    .setDescription("Setează canalul pentru logurile /warnstaff")
+    .addChannelOption(o =>
+        o.setName("channel")
+            .setDescription("Canal pentru Staff Warn Log")
+            .setRequired(true)
+    ),
 
     new SlashCommandBuilder()
         .setName("stafffreeze")
@@ -6628,6 +6735,9 @@ async function handleInteraction(interaction) {
 
     const commandName =
         interaction.commandName;
+
+    if (commandName === "setstaffwarnlog")
+        return handleSetStaffWarnLog(interaction);
 
     if (commandName === "viewcommands")
         return handleViewCommands(interaction);
