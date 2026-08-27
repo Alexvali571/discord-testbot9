@@ -8,7 +8,6 @@ const {
     PermissionsBitField
 } = require("discord.js");
 const mongoose = require("mongoose");
-const staffSystem = require("./staff_system");
  
 // ===================== EXPRESS =====================
 const app = express();
@@ -195,6 +194,8 @@ const StaffProbation = mongoose.model("StaffProbation", new mongoose.Schema({
 
     expiresAt: Date
 }));
+
+const staffSystem = require("./staff_system");
  
 // ===================== HELPERS =====================
  
@@ -459,8 +460,6 @@ const commands = [
         .addRoleOption(o => o.setName("rolesource").setDescription("Source role").setRequired(true))
         .addRoleOption(o => o.setName("roletarget").setDescription("Target role").setRequired(true)),
 
-  ...staffSystem.commands.map(c => c),
-
     
 ].map(c => c.toJSON());
  
@@ -504,13 +503,7 @@ client.once("ready", async () => {
 client.on("interactionCreate", async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
 
-    const handledByStaffSystem =
-    await staffSystem.handleInteraction(interaction);
-
-if (handledByStaffSystem !== false)
-    return;
-
-    const staffHandled =
+const staffHandled =
     await staffSystem.handleInteraction(
         interaction
     );
