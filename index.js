@@ -91,7 +91,12 @@ const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
 
     staffRoleId:   String,
     memberRoleId:  String,
-    verifyRoleId:  String
+    verifyRoleId:  String,
+    logChannelId: String,
+    warnLogChannelId: {
+    type: String,
+    default: null
+},
 }));
  
 const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
@@ -460,6 +465,20 @@ const commands = [
         .addRoleOption(o => o.setName("rolesource").setDescription("Source role").setRequired(true))
         .addRoleOption(o => o.setName("roletarget").setDescription("Target role").setRequired(true)),
 
+new SlashCommandBuilder()
+    .setName("copyrolerole")
+    .setDescription("Copiază permisiunile din toate canalele de la un rol la altul")
+    .addRoleOption(o =>
+        o.setName("source")
+            .setDescription("Rolul de la care se copiază permisiunile")
+            .setRequired(true)
+    )
+    .addRoleOption(o =>
+        o.setName("target")
+            .setDescription("Rolul care va primi permisiunile")
+            .setRequired(true)
+    ),
+
     
 ].map(c => c.toJSON());
  
@@ -512,6 +531,239 @@ if (staffHandled)
     return;
  
     const { commandName } = interaction;
+
+    // =====================================================
+// COPY ROLE -> ROLE
+// Copiază permission overwrites din TOATE canalele
+// =====================================================
+
+if (commandName === "copyrolerole") {
+
+    // DOAR BOT ADMIN
+    const allowed =
+        await staffSystem.isBotAdmin(
+            interaction
+        );
+
+    if (!allowed) {
+
+        await interaction.reply({
+            content:
+                "❌ Această comandă poate fi folosită doar de Bot Admin.",
+            ephemeral: true
+        });
+
+        return;
+    }
+
+
+    const sourceRole =
+        interaction.options.getRole(
+            "source"
+        );
+
+    const targetRole =
+        interaction.options.getRole(
+            "target"
+        );
+
+
+    // =====================================
+    // VERIFICĂRI
+    // =====================================
+
+    if (sourceRole.id === targetRole.id) {
+
+        await interaction.reply({
+            content:
+                "❌ Rolul sursă și rolul destinație nu pot fi același rol.",
+            ephemeral: true
+        });
+
+        return;
+    }
+
+
+    if (
+        targetRole.id ===
+        interaction.guild.id
+    ) {
+
+        await interaction.reply({
+            content:
+                "❌ Nu poți folosi @everyone ca rol destinație.",
+            ephemeral: true
+        });
+
+        return;
+    }
+
+
+    await interaction.deferReply({
+        ephemeral: true
+    });
+
+
+    let checked = 0;
+    let copied = 0;
+    let skipped = 0;
+    let failed = 0;
+
+
+    // =====================================
+    // TOATE CANALELE + CATEGORIILE
+    // =====================================
+
+    for (
+        const channel
+        of interaction.guild.channels.cache.values()
+    ) {
+
+        checked++;
+
+
+        try {
+
+            // Căutăm overwrite-ul rolului SOURCE
+            const sourceOverwrite =
+                channel.permissionOverwrites.cache.get(
+                    sourceRole.id
+                );
+
+
+            // SOURCE nu are setări speciale aici
+            if (!sourceOverwrite) {
+
+                skipped++;
+
+                continue;
+            }
+
+
+            // =====================================
+            // COPIEM EXACT ALLOW + DENY
+            // =====================================
+
+            await channel.permissionOverwrites.edit(
+                targetRole,
+                {
+                    ...Object.fromEntries(
+                        sourceOverwrite.allow
+                            .toArray()
+                            .map(permission => [
+                                permission,
+                                true
+                            ])
+                    ),
+
+                    ...Object.fromEntries(
+                        sourceOverwrite.deny
+                            .toArray()
+                            .map(permission => [
+                                permission,
+                                false
+                            ])
+                    )
+                }
+            );
+
+
+            copied++;
+
+        }
+
+        catch (error) {
+
+            failed++;
+
+            console.error(
+                `[COPYROLEROLE] ${channel.name}:`,
+                error
+            );
+
+        }
+
+    }
+
+    // =====================================
+// LOG COPY ROLE -> ROLE
+// Folosește canalul setat prin /setstafflog
+// =====================================
+
+try {
+
+    const staffConfig =
+        await StaffConfig.findOne({
+            guildId: interaction.guild.id
+        });
+
+
+    if (staffConfig?.logChannelId) {
+
+        const logChannel =
+            interaction.guild.channels.cache.get(
+                staffConfig.logChannelId
+            );
+
+
+        if (logChannel) {
+
+            await logChannel.send(
+`📋 **ROLE PERMISSIONS COPIED**
+
+Executed by: <@${interaction.user.id}>
+
+Source Role: ${sourceRole}
+Source ID: \`${sourceRole.id}\`
+
+Target Role: ${targetRole}
+Target ID: \`${targetRole.id}\`
+
+Channels checked: **${checked}**
+Overwrites copied: **${copied}**
+Skipped: **${skipped}**
+Failed: **${failed}**
+
+Time: <t:${Math.floor(
+    Date.now() / 1000
+)}:F>`
+            );
+
+        }
+
+    }
+
+}
+
+catch (error) {
+
+    console.error(
+        "[COPYROLEROLE LOG]",
+        error
+    );
+
+}
+
+
+    // =====================================
+    // REZULTAT
+    // =====================================
+
+    await interaction.editReply(
+`✅ **ROLE PERMISSIONS COPIED**
+
+Source: ${sourceRole}
+Target: ${targetRole}
+
+Channels checked: **${checked}**
+Overwrites copied: **${copied}**
+Skipped: **${skipped}**
+Failed: **${failed}**`
+    );
+
+
+    return;
+}
  
     // ===================== 1. SYNCROLE =====================
     if (commandName === "syncrole") {
