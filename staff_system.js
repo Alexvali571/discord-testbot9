@@ -2751,12 +2751,34 @@ async function removeStaffFreeze(
         });
 
 
-    const freezeData =
-        await StaffFreeze.findOneAndDelete({
-            guildId: member.guild.id,
-            userId: member.id,
-            source
-        });
+    let freezeQuery = {
+    guildId: member.guild.id,
+    userId: member.id
+};
+
+
+if (source === "manual") {
+
+    freezeQuery.$or = [
+        { source: "manual" },
+        { source: { $exists: false } },
+        { source: null }
+    ];
+
+}
+
+else {
+
+    freezeQuery.source =
+        source;
+
+}
+
+
+const freezeData =
+    await StaffFreeze.findOneAndDelete(
+        freezeQuery
+    );
 
 
     if (!freezeData)
@@ -3898,7 +3920,7 @@ Time: <t:${Math.floor(
                 }
 
 
-               // =====================================
+// =====================================
 // FREEZE EXPIRY
 // =====================================
 
@@ -3942,13 +3964,21 @@ for (const freeze of freezes) {
         freeze.source || "manual";
 
 
-    await removeStaffFreeze(
-        member,
-        freezeSource === "warn"
-            ? "Warn freeze expired automatically"
-            : "Freeze expired automatically",
-        freezeSource
-    );
+    const removed =
+        await removeStaffFreeze(
+            member,
+            freezeSource === "warn"
+                ? "Warn freeze expired automatically"
+                : "Freeze expired automatically",
+            freezeSource
+        );
+
+
+    // IMPORTANT:
+    // Dacă nu s-a șters nimic,
+    // NU trimitem log.
+    if (!removed)
+        continue;
 
 
     await sendStaffLog(
