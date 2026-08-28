@@ -95,9 +95,11 @@ const StaffConfig = mongoose.model("StaffConfig", new mongoose.Schema({
     verifyRoleId:  String,
     logChannelId: String,
     warnLogChannelId: {
-    type: String,
-    default: null
-},
+        type: String,
+        default: null },
+    actionLogChannelId: {
+        type: String,
+        default: null },
 }));
  
 const StaffSecurity = mongoose.model("StaffSecurity", new mongoose.Schema({
