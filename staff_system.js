@@ -31,15 +31,15 @@ const ModeratorConfig =
                 index: true
             },
 
-            grad1RoleId: {
-                type: String,
-                default: null
-            },
+            grad1RoleIds: {
+    type: [String],
+    default: []
+},
 
-            grad2RoleId: {
-                type: String,
-                default: null
-            }
+grad2RoleIds: {
+    type: [String],
+    default: []
+}
         })
     );
 
@@ -144,7 +144,6 @@ const staffHierarchy = [
 
     "ADMIN Manager",
     "Mod Manager",
-    "⭐",
     "HR Manager",
     "Public Relation",
 
@@ -168,6 +167,48 @@ const staffHierarchy = [
     "Tester",
     "Helper"
 ];
+
+function getCurrentStaffRole(member) {
+
+    for (const roleName of staffHierarchy) {
+
+        const role = member.guild.roles.cache.find(
+            r => r.name === roleName
+        );
+
+        if (
+            role &&
+            member.roles.cache.has(role.id)
+        ) {
+            return role;
+        }
+    }
+
+    return null;
+}
+
+
+function getNextLowerStaffRole(member, currentRole) {
+
+    const currentIndex =
+        staffHierarchy.indexOf(
+            currentRole.name
+        );
+
+    if (
+        currentIndex === -1 ||
+        currentIndex >= staffHierarchy.length - 1
+    ) {
+        return null;
+    }
+
+    const nextRoleName =
+        staffHierarchy[currentIndex + 1];
+
+    return member.guild.roles.cache.find(
+        r => r.name === nextRoleName
+    ) || null;
+}
 
 
 // =====================================================
@@ -201,6 +242,7 @@ const GRAD2_COMMANDS = new Set([
     "staffunsuspend",
 
     "staffdemote",
+    "staffremove",
 
     "staffprobation",
     "staffunprobation",
@@ -217,8 +259,10 @@ const GRAD2_COMMANDS = new Set([
 
 // Doar Bot Admin
 const BOT_ADMIN_ONLY = new Set([
+    "removemodrol",
     "setmodrol",
     "viewmodrole",
+    "setstaffactionlog",
 
     "setstafflog",
     "setstaffrole",
@@ -268,20 +312,22 @@ async function getModeratorLevel(interaction) {
         return 0;
 
 
+    // Verificăm întâi Grad 2
     if (
-        config.grad2RoleId &&
-        interaction.member.roles.cache.has(
-            config.grad2RoleId
+        Array.isArray(config.grad2RoleIds) &&
+        config.grad2RoleIds.some(roleId =>
+            interaction.member.roles.cache.has(roleId)
         )
     ) {
         return 2;
     }
 
 
+    // Apoi Grad 1
     if (
-        config.grad1RoleId &&
-        interaction.member.roles.cache.has(
-            config.grad1RoleId
+        Array.isArray(config.grad1RoleIds) &&
+        config.grad1RoleIds.some(roleId =>
+            interaction.member.roles.cache.has(roleId)
         )
     ) {
         return 1;
@@ -628,6 +674,43 @@ async function sendStaffLog(
     }
 }
 
+async function sendStaffActionLog(
+    guild,
+    message
+) {
+
+    try {
+
+        const config =
+            await StaffConfig.findOne({
+                guildId: guild.id
+            });
+
+        if (!config?.actionLogChannelId)
+            return;
+
+        const channel =
+            guild.channels.cache.get(
+                config.actionLogChannelId
+            );
+
+        if (!channel)
+            return;
+
+        await channel.send(message);
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[sendStaffActionLog]",
+            error
+        );
+
+    }
+}
+
 
 // =====================================================
 // GET / CREATE WARN DATA
@@ -679,6 +762,9 @@ async function removeStaffForMaxWarns(
         await StaffConfig.findOne({
             guildId: member.guild.id
         });
+
+    const currentRole =
+        getCurrentStaffRole(member);
 
 
     // -------------------------------------------------
@@ -755,6 +841,15 @@ await removeStaffSuspend(
         ).catch(() => {});
 
     }
+
+    if (currentRole) {
+
+    await sendStaffActionLog(
+        member.guild,
+        `${member} a primit Remove din funcția de ${currentRole.name}, pentru motivul: 6/6 warn-uri active.`
+    );
+
+}
 
 
     return true;
@@ -2398,6 +2493,237 @@ Deleted permanently:
     return true;
 }
 
+async function handleStaffDemote(
+    interaction
+) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "staffdemote"
+        ))
+    )
+        return true;
+
+
+    const user =
+        interaction.options.getUser(
+            "member"
+        );
+
+    const reason =
+        interaction.options.getString(
+            "reason"
+        );
+
+
+    const member =
+        await interaction.guild.members.fetch(
+            user.id
+        );
+
+
+
+    if (!currentRole) {
+
+        await interaction.reply({
+            content:
+                "Membrul nu deține niciun grad staff din ierarhia configurată.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    const nextRole =
+        getNextLowerStaffRole(
+            member,
+            currentRole
+        );
+
+
+    if (!nextRole) {
+
+        await interaction.reply({
+            content:
+                `${member} deține deja cel mai mic grad staff (${currentRole.name}).`,
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    try {
+
+        // Eliminăm toate gradele staff existente
+        for (
+            const roleName
+            of staffHierarchy
+        ) {
+
+            const role =
+                interaction.guild.roles.cache.find(
+                    r => r.name === roleName
+                );
+
+            if (
+                role &&
+                member.roles.cache.has(role.id)
+            ) {
+
+                await member.roles.remove(
+                    role,
+                    `Staff Demote: ${reason}`
+                );
+            }
+        }
+
+
+        // Punem noul grad
+        await member.roles.add(
+            nextRole,
+            `Staff Demote: ${reason}`
+        );
+
+
+        await sendStaffActionLog(
+            interaction.guild,
+            `${member} a primit Demote din funcția de ${currentRole.name} în funcția de ${nextRole.name}, pentru motivul: ${reason}.`
+        );
+
+
+        await interaction.reply({
+            content:
+                `${member} a primit Demote din ${currentRole.name} în ${nextRole.name}.`,
+            ephemeral: true
+        });
+
+
+        return true;
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[handleStaffDemote]",
+            error
+        );
+
+        await interaction.reply({
+            content:
+                "A apărut o eroare la aplicarea Demote-ului.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+}
+
+async function handleStaffRemove(
+    interaction
+) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "staffremove"
+        ))
+    )
+        return true;
+
+
+    const user =
+        interaction.options.getUser(
+            "member"
+        );
+
+    const reason =
+        interaction.options.getString(
+            "reason"
+        );
+
+
+    const member =
+        await interaction.guild.members.fetch(
+            user.id
+        );
+
+
+
+
+    if (!currentRole) {
+
+        await interaction.reply({
+            content:
+                "Membrul nu deține niciun grad staff din ierarhia configurată.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    try {
+
+        // Eliminăm toate gradele staff
+        for (const roleName of staffHierarchy) {
+
+            const role =
+                interaction.guild.roles.cache.find(
+                    r => r.name === roleName
+                );
+
+            if (
+                role &&
+                member.roles.cache.has(role.id)
+            ) {
+
+                await member.roles.remove(
+                    role,
+                    `Staff Remove: ${reason}`
+                );
+            }
+        }
+
+
+        // Log în Staff Action Log
+        await sendStaffActionLog(
+            interaction.guild,
+            `${member} a primit Remove din funcția de ${currentRole.name}, pentru motivul: ${reason}.`
+        );
+
+
+        await interaction.reply({
+            content:
+                `${member} a fost eliminat din staff.`,
+            ephemeral: true
+        });
+
+
+        return true;
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "[handleStaffRemove]",
+            error
+        );
+
+        await interaction.reply({
+            content:
+                "A apărut o eroare la eliminarea membrului din staff.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+}
+
 // =====================================================
 // FREEZE HELPERS
 // =====================================================
@@ -3515,17 +3841,12 @@ Expires: <t:${Math.floor(
         );
 
 
-        await interaction.reply(
-`❄️ **Staff Freeze**
-
-👤 Member: <@${member.id}>
-⏱ Duration: **${hours}h**
-📝 Reason: ${reason}
-
-⏰ Expires: <t:${Math.floor(
-    expiresAt.getTime() / 1000
-)}:R>`
-        );
+        await sendStaffActionLog(
+    interaction.guild,
+    `<@${member.id}> a primit Suspend până la <t:${Math.floor(
+        expiresAt.getTime() / 1000
+    )}:f>, pentru motivul: ${reason}.`
+);
 
     }
 
@@ -3615,26 +3936,57 @@ async function handleStaffUnfreeze(
     }
 
 
-    await sendStaffLog(
-        interaction.guild,
-
-`✅ STAFF UNFREEZE
-
-Member: ${member.user.tag} (${member.id})
-Reason: ${reason}
-
-Moderator: ${interaction.user.tag} (${interaction.user.id})
-
-Time: <t:${Math.floor(
-    Date.now() / 1000
-)}:F>`
-    );
+    await sendStaffActionLog(
+    interaction.guild,
+    `<@${member.id}> a primit Suspend până la <t:${Math.floor(
+        expiresAt.getTime() / 1000
+    )}:f>, pentru motivul: ${reason}.`
+);
 
 
     await interaction.reply(
         `✅ Freeze eliminat de la <@${member.id}>.`
     );
 
+
+    return true;
+}
+
+// Setarea canalului de log pentru modificari staff
+
+async function handleSetStaffActionLog(interaction) {
+
+    if (!(await isBotAdmin(interaction))) {
+        await interaction.reply({
+            content: "❌ Nu ai acces la această comandă.",
+            ephemeral: true
+        });
+        return true;
+    }
+
+    const channel =
+        interaction.options.getChannel("channel");
+
+    await StaffConfig.findOneAndUpdate(
+        {
+            guildId: interaction.guild.id
+        },
+        {
+            $set: {
+                actionLogChannelId: channel.id
+            }
+        },
+        {
+            upsert: true,
+            new: true
+        }
+    );
+
+    await interaction.reply({
+        content:
+            `Canalul pentru Staff Action Logs a fost setat pe ${channel}.`,
+        ephemeral: true
+    });
 
     return true;
 }
@@ -5807,49 +6159,50 @@ async function handleSetModRole(interaction) {
         );
 
 
-    let config =
-        await ModeratorConfig.findOne({
-            guildId: interaction.guild.id
-        });
+    let update;
+
+if (grad === 1) {
+
+    update = {
+        $addToSet: {
+            grad1RoleIds: role.id
+        }
+    };
+
+}
+
+else if (grad === 2) {
+
+    update = {
+        $addToSet: {
+            grad2RoleIds: role.id
+        }
+    };
+
+}
+
+else {
+
+    await interaction.reply({
+        content:
+            "❌ Grad invalid.",
+        ephemeral: true
+    });
+
+    return true;
+}
 
 
-    if (!config) {
-
-        config =
-            await ModeratorConfig.create({
-                guildId: interaction.guild.id
-            });
-
+await ModeratorConfig.findOneAndUpdate(
+    {
+        guildId: interaction.guild.id
+    },
+    update,
+    {
+        upsert: true,
+        new: true
     }
-
-
-    if (grad === 1) {
-
-        config.grad1RoleId =
-            role.id;
-
-    }
-
-    else if (grad === 2) {
-
-        config.grad2RoleId =
-            role.id;
-
-    }
-
-    else {
-
-        await interaction.reply({
-            content:
-                "❌ Grad invalid.",
-            ephemeral: true
-        });
-
-        return true;
-    }
-
-
-    await config.save();
+);
 
 
     await sendStaffLog(
@@ -5871,6 +6224,111 @@ Time: <t:${Math.floor(
     await interaction.reply(
         `✅ Rolul ${role} a fost setat pentru **Moderator Grad ${grad}**.`
     );
+
+
+    return true;
+}
+
+async function handleRemoveModRole(interaction) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "removemodrol"
+        ))
+    )
+        return true;
+
+
+    const grad =
+        interaction.options.getInteger(
+            "grad"
+        );
+
+    const role =
+        interaction.options.getRole(
+            "role"
+        );
+
+
+    let update;
+
+    if (grad === 1) {
+
+        update = {
+            $pull: {
+                grad1RoleIds: role.id
+            }
+        };
+
+    }
+
+    else if (grad === 2) {
+
+        update = {
+            $pull: {
+                grad2RoleIds: role.id
+            }
+        };
+
+    }
+
+    else {
+
+        await interaction.reply({
+            content: "❌ Grad invalid.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    const config =
+        await ModeratorConfig.findOneAndUpdate(
+            {
+                guildId: interaction.guild.id
+            },
+            update,
+            {
+                new: true
+            }
+        );
+
+
+    if (!config) {
+
+        await interaction.reply({
+            content:
+                "❌ Nu există configurare pentru rolurile de moderator.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+
+    await sendStaffLog(
+        interaction.guild,
+
+`MODERATOR ROLE REMOVED
+
+Grad: ${grad}
+Role: ${role} (${role.id})
+
+Removed by: ${interaction.user} (${interaction.user.id})
+
+Time: <t:${Math.floor(
+    Date.now() / 1000
+)}:F>`
+    );
+
+
+    await interaction.reply({
+        content:
+            `✅ Rolul ${role} a fost eliminat din **Moderator Grad ${grad}**.`,
+        ephemeral: true
+    });
 
 
     return true;
@@ -5898,15 +6356,19 @@ async function handleViewModRole(interaction) {
         });
 
 
-    const grad1 =
-        config?.grad1RoleId
-            ? `<@&${config.grad1RoleId}>`
-            : "Nesetat";
+const grad1 =
+    config?.grad1RoleIds?.length
+        ? config.grad1RoleIds
+            .map(roleId => `<@&${roleId}>`)
+            .join("\n")
+        : "Nesetat";
 
-    const grad2 =
-        config?.grad2RoleId
-            ? `<@&${config.grad2RoleId}>`
-            : "Nesetat";
+const grad2 =
+    config?.grad2RoleIds?.length
+        ? config.grad2RoleIds
+            .map(roleId => `<@&${roleId}>`)
+            .join("\n")
+        : "Nesetat";
 
 
     await interaction.reply(
@@ -5938,10 +6400,10 @@ async function handleViewModerators(interaction) {
         });
 
 
-    if (
-        !config?.grad1RoleId &&
-        !config?.grad2RoleId
-    ) {
+if (
+    (!config?.grad1RoleIds || config.grad1RoleIds.length === 0) &&
+    (!config?.grad2RoleIds || config.grad2RoleIds.length === 0)
+) {
 
         await interaction.reply(
             "❌ Rolurile de moderator nu sunt configurate."
@@ -5954,26 +6416,26 @@ async function handleViewModerators(interaction) {
     await interaction.guild.members.fetch();
 
 
-    const grad1Members =
-        config.grad1RoleId
-            ? interaction.guild.members.cache.filter(
-                member =>
-                    member.roles.cache.has(
-                        config.grad1RoleId
-                    )
-            )
-            : new Map();
+const grad1Members =
+    config?.grad1RoleIds?.length
+        ? interaction.guild.members.cache.filter(
+            member =>
+                config.grad1RoleIds.some(roleId =>
+                    member.roles.cache.has(roleId)
+                )
+        )
+        : new Map();
 
 
-    const grad2Members =
-        config.grad2RoleId
-            ? interaction.guild.members.cache.filter(
-                member =>
-                    member.roles.cache.has(
-                        config.grad2RoleId
-                    )
-            )
-            : new Map();
+const grad2Members =
+    config?.grad2RoleIds?.length
+        ? interaction.guild.members.cache.filter(
+            member =>
+                config.grad2RoleIds.some(roleId =>
+                    member.roles.cache.has(roleId)
+                )
+        )
+        : new Map();
 
 
     let text =
@@ -6207,6 +6669,20 @@ new SlashCommandBuilder()
                 .setRequired(true)
         ),
 
+        new SlashCommandBuilder()
+    .setName("staffremove")
+    .setDescription("Elimină un membru din staff")
+    .addUserOption(o =>
+        o.setName("member")
+            .setDescription("Membrul staff")
+            .setRequired(true)
+    )
+    .addStringOption(o =>
+        o.setName("reason")
+            .setDescription("Motiv")
+            .setRequired(true)
+    ),
+
     new SlashCommandBuilder()
         .setName("clearwarnstaff")
         .setDescription("Elimină toate warn-urile active")
@@ -6404,6 +6880,15 @@ new SlashCommandBuilder()
         ),
 
     new SlashCommandBuilder()
+    .setName("setstaffactionlog")
+    .setDescription("Setează canalul pentru logurile Freeze, Suspend, Demote și Remove")
+    .addChannelOption(o =>
+        o.setName("channel")
+            .setDescription("Canalul pentru Staff Action Logs")
+            .setRequired(true)
+    ),
+
+    new SlashCommandBuilder()
         .setName("setblacklistrole")
         .setDescription("Adaugă rol interzis pentru blacklist")
         .addStringOption(o =>
@@ -6502,6 +6987,24 @@ new SlashCommandBuilder()
     new SlashCommandBuilder()
         .setName("topstaffwarns")
         .setDescription("Arată topul warn-urilor staff"),
+
+    new SlashCommandBuilder()
+    .setName("removemodrol")
+    .setDescription("Elimină un rol din Moderator Grad 1 sau 2")
+    .addIntegerOption(o =>
+        o.setName("grad")
+            .setDescription("Grad moderator")
+            .setRequired(true)
+            .addChoices(
+                { name: "Grad 1", value: 1 },
+                { name: "Grad 2", value: 2 }
+            )
+    )
+    .addRoleOption(o =>
+        o.setName("role")
+            .setDescription("Rolul care va fi eliminat")
+            .setRequired(true)
+    ),
 
 
     // =================================================
@@ -6605,8 +7108,14 @@ async function handleInteraction(interaction) {
     if (commandName === "setstaffwarnlog")
         return handleSetStaffWarnLog(interaction);
 
+    if (commandName === "setstaffactionlog")
+        return handleSetStaffActionLog(interaction);
+
     if (commandName === "setmodrol")
         return handleSetModRole(interaction);
+    
+    if (commandName === "removemodrol")
+        return handleRemoveModRole(interaction);
 
     if (commandName === "viewmodrole")
         return handleViewModRole(interaction);
@@ -6701,6 +7210,9 @@ async function handleInteraction(interaction) {
 
     if (commandName === "staffdemote")
         return handleStaffDemote(interaction);
+
+    if (commandName === "staffremove")
+        return handleStaffRemove(interaction);
 
     if (commandName === "topstaffwarns")
         return handleTopStaffWarns(interaction);
