@@ -6048,136 +6048,6 @@ async function handleViewModerators(interaction) {
     return true;
 }
 
-// =====================================================
-// /VIEWCOMMANDS
-// Arată doar comenzile la care utilizatorul are acces
-// =====================================================
-
-async function handleViewCommands(interaction) {
-
-    const botAdmin =
-        await isBotAdmin(interaction);
-
-    const level =
-        await getModeratorLevel(interaction);
-
-
-    const publicCommands = [
-        "viewmoderators"
-    ];
-
-
-    let allowedCommands =
-        [...publicCommands];
-
-
-    if (level >= 1) {
-
-        allowedCommands.push(
-            ...GRAD1_COMMANDS
-        );
-
-    }
-
-
-    if (level >= 2) {
-
-        allowedCommands.push(
-            ...GRAD2_COMMANDS
-        );
-
-    }
-
-
-    if (botAdmin) {
-
-        allowedCommands.push(
-            ...GRAD1_COMMANDS,
-            ...GRAD2_COMMANDS,
-            ...BOT_ADMIN_ONLY
-        );
-
-    }
-
-
-    // eliminăm duplicatele
-    allowedCommands =
-        [...new Set(
-            allowedCommands
-        )];
-
-
-    // viewcommands trebuie să apară mereu
-    if (
-        !allowedCommands.includes(
-            "viewcommands"
-        )
-    ) {
-
-        allowedCommands.push(
-            "viewcommands"
-        );
-
-    }
-
-
-    allowedCommands.sort();
-
-
-    let text =
-`📋 **COMENZILE TALE DISPONIBILE**
-
-`;
-
-
-    for (
-        const command
-        of allowedCommands
-    ) {
-
-        text +=
-            `• \`/${command}\`\n`;
-
-    }
-
-
-    if (botAdmin) {
-
-        text +=
-`\n🛡️ Nivel acces: **Bot Admin**`;
-
-    }
-
-    else if (level >= 2) {
-
-        text +=
-`\n🔴 Nivel acces: **Moderator Grad 2**`;
-
-    }
-
-    else if (level >= 1) {
-
-        text +=
-`\n🟡 Nivel acces: **Moderator Grad 1**`;
-
-    }
-
-    else {
-
-        text +=
-`\n⚪ Nivel acces: **Public**`;
-
-    }
-
-
-    await interaction.reply({
-        content: text,
-        ephemeral: true
-    });
-
-
-    return true;
-}
 
 async function handleSetStaffWarnLog(
     interaction
@@ -6703,10 +6573,6 @@ new SlashCommandBuilder()
         ),
 
     new SlashCommandBuilder()
-        .setName("viewcommands")
-        .setDescription("Vezi comenzile la care ai acces"),
-
-    new SlashCommandBuilder()
         .setName("staffsecurity")
         .setDescription("Setează Security Level")
         .addUserOption(o =>
@@ -6738,9 +6604,6 @@ async function handleInteraction(interaction) {
 
     if (commandName === "setstaffwarnlog")
         return handleSetStaffWarnLog(interaction);
-
-    if (commandName === "viewcommands")
-        return handleViewCommands(interaction);
 
     if (commandName === "setmodrol")
         return handleSetModRole(interaction);
