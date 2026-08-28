@@ -28,6 +28,7 @@ app.listen(PORT, () => console.log("Express running on port", PORT));
 const TOKEN      = process.env.TOKEN;
 const CLIENT_ID  = process.env.CLIENT_ID;
 const MONGO_URI  = process.env.MONGO_URI;
+const GUILD_ID   = process.env.GUILD_ID;
  
 // ===================== MONGO =====================
 mongoose.connect(MONGO_URI, { serverSelectionTimeoutMS: 30000 })
@@ -492,8 +493,22 @@ async function register() {
         ...staffSystem.commands
     ];
 
+    // Șterge comenzile globale vechi
     await rest.put(
         Routes.applicationCommands(CLIENT_ID),
+        {
+            body: []
+        }
+    );
+
+    console.log("🧹 Global commands cleared");
+
+    // Înregistrează comenzile pe serverul GUILD_ID
+    await rest.put(
+        Routes.applicationGuildCommands(
+            CLIENT_ID,
+            GUILD_ID
+        ),
         {
             body: allCommands.map(command =>
                 typeof command.toJSON === "function"
