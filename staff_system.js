@@ -72,6 +72,16 @@ const BlacklistEntry =
                 required: true
             },
 
+            expiresAt: {
+    type: Date,
+    default: null
+},
+
+permanent: {
+    type: Boolean,
+    default: false
+},
+
             reason: {
                 type: String,
                 required: true
@@ -110,20 +120,25 @@ const BlacklistConfig =
                 index: true
             },
 
-            logChannelId: {
-                type: String,
-                default: null
-            },
+           logChannelId: {
+    type: String,
+    default: null
+},
 
-            normalForbiddenRoleIds: {
-                type: [String],
-                default: []
-            },
+testerRoleId: {
+    type: String,
+    default: null
+},
 
-            staffForbiddenRoleIds: {
-                type: [String],
-                default: []
-            }
+normalForbiddenRoleIds: {
+    type: [String],
+    default: []
+},
+
+staffForbiddenRoleIds: {
+    type: [String],
+    default: []
+}
         })
     );
 
@@ -188,25 +203,43 @@ function getCurrentStaffRole(member) {
 }
 
 
-function getNextLowerStaffRole(member, currentRole) {
-
+async function getNextLowerStaffRole(
+    member,
+    currentRole
+) {
     const currentIndex =
         staffHierarchy.indexOf(
             currentRole.name
         );
 
-    if (
-        currentIndex === -1 ||
-        currentIndex >= staffHierarchy.length - 1
-    ) {
+    if (currentIndex === -1)
         return null;
+
+    if (
+        currentIndex <
+        staffHierarchy.length - 1
+    ) {
+        const nextRoleName =
+            staffHierarchy[
+                currentIndex + 1
+            ];
+
+        return member.guild.roles.cache.find(
+            role =>
+                role.name === nextRoleName
+        ) || null;
     }
 
-    const nextRoleName =
-        staffHierarchy[currentIndex + 1];
+    const config =
+        await StaffConfig.findOne({
+            guildId: member.guild.id
+        });
 
-    return member.guild.roles.cache.find(
-        r => r.name === nextRoleName
+    if (!config?.memberRoleId)
+        return null;
+
+    return member.guild.roles.cache.get(
+        config.memberRoleId
     ) || null;
 }
 
@@ -263,6 +296,7 @@ const BOT_ADMIN_ONLY = new Set([
     "setmodrol",
     "viewmodrole",
     "setstaffactionlog",
+    "setblacklisttesterrole",
 
     "setstafflog",
     "setstaffrole",
@@ -880,6 +914,7 @@ async function handleWarnStaff(interaction) {
         interaction.options.getString(
             "reason"
         );
+
 
     const severity =
         interaction.options.getInteger(
@@ -1575,6 +1610,15 @@ async function requireBlacklistConfig(
             "/setblacklistrole type:Staff"
         );
     }
+
+    if (
+    type === "normal" &&
+    !config.testerRoleId
+) {
+    missing.push(
+        "/setblacklisttesterrole"
+    );
+}
 
     if (missing.length > 0) {
 
@@ -2522,6 +2566,9 @@ async function handleStaffDemote(
             user.id
         );
 
+    const currentRole =
+        getCurrentStaffRole(member);
+
 
 
     if (!currentRole) {
@@ -2536,11 +2583,11 @@ async function handleStaffDemote(
     }
 
 
-    const nextRole =
-        getNextLowerStaffRole(
-            member,
-            currentRole
-        );
+const nextRole =
+    await getNextLowerStaffRole(
+        member,
+        currentRole
+    );
 
 
     if (!nextRole) {
@@ -2651,7 +2698,8 @@ async function handleStaffRemove(
             user.id
         );
 
-
+    const currentRole =
+        getCurrentStaffRole(member);
 
 
     if (!currentRole) {
@@ -4445,6 +4493,7 @@ for (const suspend of suspends) {
         suspend.source || "manual";
 
 
+const removed =
     await removeStaffSuspend(
         member,
         suspendSource === "warn"
@@ -4452,6 +4501,9 @@ for (const suspend of suspends) {
             : "Suspend expired automatically",
         suspendSource
     );
+
+if (!removed)
+    continue;
 
 
     await sendStaffLog(
@@ -4515,6 +4567,41 @@ Time: <t:${Math.floor(
 
                 }
 
+                // =====================================
+// BLACKLIST EXPIRY
+// =====================================
+
+const expiredBlacklists =
+    await BlacklistEntry.find({
+        active: true,
+        permanent: false,
+        expiresAt: {
+            $ne: null,
+            $lte: now
+        }
+    });
+
+for (const blacklist of expiredBlacklists) {
+
+    blacklist.active = false;
+    blacklist.expiresAt = null;
+
+    await blacklist.save();
+
+    const guild =
+        client.guilds.cache.get(
+            blacklist.guildId
+        );
+
+    if (!guild)
+        continue;
+
+    await sendBlacklistLog(
+        guild,
+        `<@${blacklist.userId}> nu mai are ${blacklist.type === "staff" ? "Staff Blacklist" : "Blacklist"} deoarece perioada a expirat.`
+    );
+}
+
             }
 
             catch (error) {
@@ -4533,6 +4620,7 @@ Time: <t:${Math.floor(
     );
 
 }
+
 
 // =====================================================
 // /STAFFPROBATION
@@ -4830,9 +4918,12 @@ async function sendBlacklistLog(
             return;
 
 
-        await channel.send(
-            message
-        );
+await channel.send({
+    content: message,
+    allowedMentions: {
+        parse: ["users", "roles"]
+    }
+});
 
     }
 
@@ -4858,18 +4949,41 @@ async function getActiveBlacklist(
     type
 ) {
 
-    return BlacklistEntry.findOne({
+    const blacklist =
+        await BlacklistEntry.findOne({
 
-        guildId,
+            guildId,
 
-        userId,
+            userId,
 
-        type,
+            type,
 
-        active: true
+            active: true
 
-    });
+        });
 
+    if (!blacklist)
+        return null;
+
+    // Blacklist permanent
+    if (blacklist.permanent)
+        return blacklist;
+
+    // Blacklist temporar expirat
+    if (
+        blacklist.expiresAt &&
+        new Date(blacklist.expiresAt) <= new Date()
+    ) {
+
+blacklist.active = false;
+blacklist.expiresAt = null;
+
+await blacklist.save();
+
+return null;
+    }
+
+    return blacklist;
 }
 
 
@@ -4978,6 +5092,44 @@ if (!blacklistConfig)
             "reason"
         );
 
+    const durata =
+    interaction.options.getString(
+        "durata"
+    );
+
+let expiresAt = null;
+let permanent = false;
+
+if (durata === "permanent") {
+
+    permanent = true;
+
+} else {
+
+    const match =
+        durata?.match(/^(\d+)d$/);
+
+    if (!match) {
+
+        await interaction.reply({
+            content:
+                "❌ Durata selectată este invalidă.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+    const days =
+        parseInt(match[1]);
+
+    expiresAt =
+        new Date(
+            Date.now() +
+            days * 24 * 60 * 60 * 1000
+        );
+}
+
 
     if (!reason?.trim()) {
 
@@ -5028,14 +5180,18 @@ if (!blacklistConfig)
 
         reason,
 
-        moderatorId:
-            interaction.user.id,
+moderatorId:
+    interaction.user.id,
 
-        active:
-            true,
+active:
+    true,
 
-        date:
-            new Date()
+date:
+    new Date(),
+
+expiresAt,
+
+permanent
 
     });
 
@@ -5060,36 +5216,28 @@ if (!blacklistConfig)
     }
 
 
-    await sendBlacklistLog(
-        interaction.guild,
+    let blacklistLogMessage;
 
-`🚫 BLACKLIST
+if (permanent) {
 
-Member: <@${user.id}> (${user.id})
+    blacklistLogMessage =
+        `<@${user.id}> a primit Blacklist permanent pe motivul: ${reason}. <@&${blacklistConfig.testerRoleId}>`;
 
-Reason: ${reason}
+} else {
 
-Moderator:
-<@${interaction.user.id}>
+    const unix =
+        Math.floor(
+            expiresAt.getTime() / 1000
+        );
 
-Removed forbidden roles:
-${
-    removedRoles.length
-        ?
-        removedRoles
-            .map(
-                role =>
-                    `<@&${role.id}>`
-            )
-            .join(", ")
-        :
-        "None"
+    blacklistLogMessage =
+        `<@${user.id}> a primit Blacklist până pe data de <t:${unix}:f> pe motivul: ${reason}. <@&${blacklistConfig.testerRoleId}>`;
 }
 
-Time: <t:${Math.floor(
-    Date.now() / 1000
-)}:F>`
-    );
+await sendBlacklistLog(
+    interaction.guild,
+    blacklistLogMessage
+);
 
 
     await interaction.reply(
@@ -5141,6 +5289,44 @@ if (!blacklistConfig)
         interaction.options.getString(
             "reason"
         );
+
+    const durata =
+    interaction.options.getString(
+        "durata"
+    );
+
+let expiresAt = null;
+let permanent = false;
+
+if (durata === "permanent") {
+
+    permanent = true;
+
+} else {
+
+    const match =
+        durata?.match(/^(\d+)d$/);
+
+    if (!match) {
+
+        await interaction.reply({
+            content:
+                "❌ Durata selectată este invalidă.",
+            ephemeral: true
+        });
+
+        return true;
+    }
+
+    const days =
+        parseInt(match[1]);
+
+    expiresAt =
+        new Date(
+            Date.now() +
+            days * 24 * 60 * 60 * 1000
+        );
+}
 
 
     if (!reason?.trim()) {
@@ -5199,7 +5385,11 @@ if (!blacklistConfig)
             true,
 
         date:
-            new Date()
+            new Date(),
+
+        expiresAt,
+
+permanent
 
     });
 
@@ -5224,12 +5414,33 @@ if (!blacklistConfig)
     }
 
 
-    await sendBlacklistLog(
-        interaction.guild,
+    let staffBlacklistDurationText;
+
+if (permanent) {
+
+    staffBlacklistDurationText =
+        "Permanent";
+
+} else {
+
+    const unix =
+        Math.floor(
+            expiresAt.getTime() / 1000
+        );
+
+    staffBlacklistDurationText =
+        `<t:${unix}:f>`;
+}
+
+await sendBlacklistLog(
+    interaction.guild,
 
 `🛡 STAFF BLACKLIST
 
 Member: <@${user.id}> (${user.id})
+
+Duration:
+${staffBlacklistDurationText}
 
 Reason: ${reason}
 
@@ -5253,7 +5464,7 @@ ${
 Time: <t:${Math.floor(
     Date.now() / 1000
 )}:F>`
-    );
+);
 
 
     await interaction.reply(
@@ -5288,6 +5499,24 @@ async function handleViewBlacklist(
         ))
     )
         return true;
+
+    await BlacklistEntry.updateMany(
+    {
+        guildId: interaction.guild.id,
+        active: true,
+        permanent: false,
+        expiresAt: {
+            $ne: null,
+            $lte: new Date()
+        }
+    },
+    {
+        $set: {
+            active: false,
+            expiresAt: null
+        }
+    }
+);
 
 
     const normal =
@@ -5344,6 +5573,15 @@ async function handleViewBlacklist(
 
                 text +=
 `**${index + 1}.** <@${entry.userId}>
+Duration: ${
+    entry.permanent
+        ? "Permanent"
+        : entry.expiresAt
+            ? `<t:${Math.floor(
+                new Date(entry.expiresAt).getTime() / 1000
+            )}:f>`
+            : "Unknown"
+}
 Reason: ${entry.reason}
 By: <@${entry.moderatorId}>
 Date: <t:${Math.floor(
@@ -5383,6 +5621,15 @@ Date: <t:${Math.floor(
 
                 text +=
 `**${index + 1}.** <@${entry.userId}>
+Duration: ${
+    entry.permanent
+        ? "Permanent"
+        : entry.expiresAt
+            ? `<t:${Math.floor(
+                new Date(entry.expiresAt).getTime() / 1000
+            )}:f>`
+            : "Unknown"
+}
 Reason: ${entry.reason}
 By: <@${entry.moderatorId}>
 Date: <t:${Math.floor(
@@ -5475,11 +5722,14 @@ async function handleUnblacklist(
     }
 
 
-    blacklist.active =
-        false;
+blacklist.active =
+    false;
 
-    blacklist.removedBy =
-        interaction.user.id;
+blacklist.expiresAt =
+    null;
+
+blacklist.removedBy =
+    interaction.user.id;
 
     blacklist.removedAt =
         new Date();
@@ -5581,11 +5831,14 @@ async function handleStaffUnblacklist(
     }
 
 
-    blacklist.active =
-        false;
+blacklist.active =
+    false;
 
-    blacklist.removedBy =
-        interaction.user.id;
+blacklist.expiresAt =
+    null;
+
+blacklist.removedBy =
+    interaction.user.id;
 
     blacklist.removedAt =
         new Date();
@@ -5721,6 +5974,15 @@ function registerBlacklistProtection(
                     }
 
                 }
+
+                if (
+    type === "normal" &&
+    !config.testerRoleId
+) {
+    missing.push(
+        "/setblacklisttesterrole"
+    );
+}
 
 
                 if (
@@ -5895,6 +6157,42 @@ Time:
         `✅ ${role} a fost adăugat în rolurile interzise pentru **${type === "staff" ? "Staff Blacklist" : "Normal Blacklist"}**.`
     );
 
+
+    return true;
+}
+
+async function handleSetBlacklistTesterRole(
+    interaction
+) {
+
+    if (
+        !(await requireAccess(
+            interaction,
+            "setblacklisttesterrole"
+        ))
+    )
+        return true;
+
+    const role =
+        interaction.options.getRole(
+            "role"
+        );
+
+    const config =
+        await getBlacklistConfig(
+            interaction.guild.id
+        );
+
+    config.testerRoleId =
+        role.id;
+
+    await config.save();
+
+    await interaction.reply({
+        content:
+            `✅ Rolul pentru notificările de Blacklist a fost setat la ${role}.`,
+        ephemeral: true
+    });
 
     return true;
 }
@@ -6792,6 +7090,15 @@ new SlashCommandBuilder()
         ),
 
     new SlashCommandBuilder()
+    .setName("setblacklisttesterrole")
+    .setDescription("Setează rolul Testers pentru notificările de Blacklist")
+    .addRoleOption(o =>
+        o.setName("role")
+            .setDescription("Rolul Testers")
+            .setRequired(true)
+    ),
+
+    new SlashCommandBuilder()
         .setName("staffunsuspend")
         .setDescription("Scoate suspend staff")
         .addUserOption(o =>
@@ -6847,6 +7154,24 @@ new SlashCommandBuilder()
                 .setRequired(true)
         )
         .addStringOption(o =>
+    o.setName("durata")
+        .setDescription("Durata blacklist-ului")
+        .setRequired(true)
+        .addChoices(
+            { name: "1 zi", value: "1d" },
+            { name: "3 zile", value: "3d" },
+            { name: "7 zile", value: "7d" },
+            { name: "14 zile", value: "14d" },
+            { name: "30 zile", value: "30d" },
+            { name: "60 zile", value: "60d" },
+            { name: "90 zile", value: "90d" },
+            { name: "120 zile", value: "120d" },
+            { name: "180 zile", value: "180d" },
+            { name: "360 zile", value: "360d" },
+            { name: "Permanent", value: "permanent" }
+        )
+)
+        .addStringOption(o =>
             o.setName("reason")
                 .setDescription("Motiv")
                 .setRequired(true)
@@ -6860,6 +7185,24 @@ new SlashCommandBuilder()
                 .setDescription("Membru")
                 .setRequired(true)
         )
+        .addStringOption(o =>
+    o.setName("durata")
+        .setDescription("Durata Staff Blacklist-ului")
+        .setRequired(true)
+        .addChoices(
+            { name: "1 zi", value: "1d" },
+            { name: "3 zile", value: "3d" },
+            { name: "7 zile", value: "7d" },
+            { name: "14 zile", value: "14d" },
+            { name: "30 zile", value: "30d" },
+            { name: "60 zile", value: "60d" },
+            { name: "90 zile", value: "90d" },
+            { name: "120 zile", value: "120d" },
+            { name: "180 zile", value: "180d" },
+            { name: "360 zile", value: "360d" },
+            { name: "Permanent", value: "permanent" }
+        )
+)
         .addStringOption(o =>
             o.setName("reason")
                 .setDescription("Motiv")
@@ -7104,6 +7447,15 @@ async function handleInteraction(interaction) {
 
     const commandName =
         interaction.commandName;
+
+    if (
+    interaction.commandName ===
+    "setblacklisttesterrole"
+) {
+    return await handleSetBlacklistTesterRole(
+        interaction
+    );
+}
 
     if (commandName === "setstaffwarnlog")
         return handleSetStaffWarnLog(interaction);
